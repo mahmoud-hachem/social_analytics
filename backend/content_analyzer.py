@@ -10,11 +10,6 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-
-# ---------------------------------------------------------
-# Environment
-# ---------------------------------------------------------
-
 def require_env(name: str) -> str:
     value = os.getenv(name)
 
@@ -24,11 +19,6 @@ def require_env(name: str) -> str:
         )
 
     return value.strip()
-
-
-# ---------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
@@ -44,10 +34,6 @@ gemini_client = genai.Client(
     api_key=GEMINI_API_KEY
 )
 
-
-# ---------------------------------------------------------
-# Allowed AI output
-# ---------------------------------------------------------
 
 LanguageLabel = Literal[
     "english",
@@ -118,10 +104,6 @@ class AnalysisResult(BaseModel):
     )
 
 
-# ---------------------------------------------------------
-# Database
-# ---------------------------------------------------------
-
 def get_database_connection():
     return pymysql.connect(
         host=DB_HOST,
@@ -176,10 +158,6 @@ def get_content_without_analysis() -> list[dict]:
         connection.close()
 
 
-# ---------------------------------------------------------
-# Gemini analysis
-# ---------------------------------------------------------
-
 def analyze_text_with_gemini(
     text: str,
     parent_text: str | None = None,
@@ -191,10 +169,6 @@ def analyze_text_with_gemini(
         raise ValueError(
             "Cannot analyze empty content."
         )
-
-    # -----------------------------------------------------
-    # Context
-    # -----------------------------------------------------
 
     if parent_text:
         analysis_context = f"""
@@ -316,9 +290,6 @@ COMMENT TO ANALYZE:
 Analyze this comment independently.
 """.strip()
 
-    # -----------------------------------------------------
-    # Prompt
-    # -----------------------------------------------------
 
     prompt = f"""
 You analyze customer social-media content for a Lebanese
@@ -630,9 +601,6 @@ CONTENT TO ANALYZE
 {analysis_context}
 """.strip()
 
-    # -----------------------------------------------------
-    # Gemini request
-    # -----------------------------------------------------
 
     response = gemini_client.models.generate_content(
         model=GEMINI_MODEL,
@@ -663,10 +631,6 @@ CONTENT TO ANALYZE
         f"Unexpected Gemini result type: {type(parsed)}"
     )
 
-
-# ---------------------------------------------------------
-# Save analysis
-# ---------------------------------------------------------
 
 def save_analysis(
     content_id: int,
@@ -730,10 +694,6 @@ def save_analysis(
     finally:
         connection.close()
 
-
-# ---------------------------------------------------------
-# Main workflow
-# ---------------------------------------------------------
 
 def main() -> None:
 
