@@ -138,6 +138,60 @@ def fetch_all_comments() -> list[dict[str, Any]]:
 
     return comments
 
+def fetch_comment_replies(
+    comment_id: str,
+) -> list[dict[str, Any]]:
+    url: str | None = (
+        f"https://graph.facebook.com/"
+        f"{META_GRAPH_API_VERSION}/"
+        f"{comment_id}/comments"
+    )
+
+    params: dict[str, Any] | None = {
+        "access_token": META_PAGE_ACCESS_TOKEN,
+        "fields": "id,message,created_time,like_count",
+        "limit": 100,
+    }
+
+    replies: list[dict[str, Any]] = []
+
+    while url:
+        response = requests.get(
+            url,
+            params=params,
+            timeout=30,
+        )
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                "Meta returned a non-JSON response: "
+                f"{response.text}"
+            ) from exc
+
+        if not response.ok or "error" in payload:
+            error = payload.get("error", {})
+
+            raise RuntimeError(
+                error.get(
+                    "message",
+                    "Unknown Meta Graph API error",
+                )
+            )
+
+        replies.extend(
+            payload.get("data", [])
+        )
+
+        url = (
+            payload.get("paging", {})
+            .get("next")
+        )
+
+        params = None
+
+    return replies
 
 def normalize_comment(
     comment: dict[str, Any],
@@ -179,6 +233,7 @@ def normalize_comment(
             "comment_under_official_post"
         ),
         "source_post_id": META_POST_ID,
+        "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
         ),
@@ -193,6 +248,48 @@ def normalize_comment(
         ),
     }
 
+def normalize_reply(
+    reply: dict[str, Any],
+    parent_comment_id: str,
+) -> dict[str, Any] | None:
+    external_id = str(
+        reply.get("id", "")
+    ).strip()
+
+    content_text = str(
+        reply.get("message", "")
+    ).strip()
+
+    created_time = str(
+        reply.get("created_time", "")
+    ).strip()
+
+    if not external_id:
+        return None
+
+    if not content_text:
+        return None
+
+    if not created_time:
+        return None
+
+    return {
+        "external_id": external_id,
+        "platform": "facebook",
+        "content_type": "reply_to_comment",
+        "source_post_id": META_POST_ID,
+        "parent_external_id": parent_comment_id,
+        "author_id": anonymize_author(
+            external_id
+        ),
+        "content_text": content_text,
+        "published_at": parse_facebook_datetime(
+            created_time
+        ),
+        "likes_count": int(
+            reply.get("like_count") or 0
+        ),
+    }
 
 def get_database_connection():
     return pymysql.connect(
@@ -220,6 +317,7 @@ def save_comments(
             platform,
             content_type,
             source_post_id,
+            parent_external_id,
             author_id,
             content_text,
             published_at,
@@ -230,6 +328,7 @@ def save_comments(
             %(platform)s,
             %(content_type)s,
             %(source_post_id)s,
+            %(parent_external_id)s,
             %(author_id)s,
             %(content_text)s,
             %(published_at)s,
@@ -238,6 +337,7 @@ def save_comments(
         ON DUPLICATE KEY UPDATE
             content_type = VALUES(content_type),
             source_post_id = VALUES(source_post_id),
+            parent_external_id = VALUES(parent_external_id),
             author_id = VALUES(author_id),
             content_text = VALUES(content_text),
             published_at = VALUES(published_at),
@@ -275,25 +375,44 @@ def main() -> None:
         f"Received {len(raw_comments)} comments."
     )
 
-    normalized_comments: list[
+    normalized_content: list[
         dict[str, Any]
     ] = []
 
     for raw_comment in raw_comments:
-        normalized = normalize_comment(
+        normalized_comment = normalize_comment(
             raw_comment
         )
 
-        if normalized is not None:
-            normalized_comments.append(
-                normalized
+        if normalized_comment is not None:
+            normalized_content.append(
+                normalized_comment
             )
 
-    save_comments(normalized_comments)
+        comment_id = str(
+            raw_comment["id"]
+        )
+
+        raw_replies = fetch_comment_replies(
+            comment_id
+        )
+
+        for raw_reply in raw_replies:
+            normalized_reply = normalize_reply(
+                raw_reply,
+                parent_comment_id=comment_id,
+            )
+
+            if normalized_reply is not None:
+                normalized_content.append(
+                    normalized_reply
+                )
+
+    save_comments(normalized_content)
 
     print(
-        f"Saved {len(normalized_comments)} "
-        "comments to MySQL."
+        f"Saved {len(normalized_content)} "
+        "comments and replies to MySQL."
     )
 
 

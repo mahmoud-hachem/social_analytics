@@ -78,8 +78,9 @@ def fetch_all_comments() -> list[dict[str, Any]]:
 
     params: dict[str, Any] | None = {
         "access_token": META_PAGE_ACCESS_TOKEN,
-        "fields": (
-    "id,text,timestamp,like_count"
+"fields": (
+    "id,text,timestamp,like_count,"
+    "replies{id,text,timestamp,like_count}"
 ),
         "limit": 100,
     }
@@ -179,6 +180,7 @@ def normalize_comment(
             "comment_under_official_post"
         ),
         "source_post_id": INSTAGRAM_POST_ID,
+        "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
         ),
@@ -193,6 +195,48 @@ def normalize_comment(
         ),
     }
 
+def normalize_reply(
+    reply: dict[str, Any],
+    parent_comment_id: str,
+) -> dict[str, Any] | None:
+    external_id = str(
+        reply.get("id", "")
+    ).strip()
+
+    content_text = str(
+        reply.get("text", "")
+    ).strip()
+
+    created_time = str(
+        reply.get("timestamp", "")
+    ).strip()
+
+    if not external_id:
+        return None
+
+    if not content_text:
+        return None
+
+    if not created_time:
+        return None
+
+    return {
+        "external_id": external_id,
+        "platform": "instagram",
+        "content_type": "reply_to_comment",
+        "source_post_id": INSTAGRAM_POST_ID,
+        "parent_external_id": parent_comment_id,
+        "author_id": anonymize_author(
+            external_id
+        ),
+        "content_text": content_text,
+        "published_at": parse_instagram_datetime(
+            created_time
+        ),
+        "likes_count": int(
+            reply.get("like_count") or 0
+        ),
+    }
 
 def get_database_connection():
     return pymysql.connect(
@@ -220,6 +264,7 @@ def save_comments(
             platform,
             content_type,
             source_post_id,
+            parent_external_id,
             author_id,
             content_text,
             published_at,
@@ -230,6 +275,7 @@ def save_comments(
             %(platform)s,
             %(content_type)s,
             %(source_post_id)s,
+            %(parent_external_id)s,
             %(author_id)s,
             %(content_text)s,
             %(published_at)s,
@@ -238,6 +284,7 @@ def save_comments(
         ON DUPLICATE KEY UPDATE
             content_type = VALUES(content_type),
             source_post_id = VALUES(source_post_id),
+            parent_external_id = VALUES(parent_external_id),
             author_id = VALUES(author_id),
             content_text = VALUES(content_text),
             published_at = VALUES(published_at),
@@ -266,7 +313,7 @@ def save_comments(
 def main() -> None:
     print(
         "Fetching comments from "
-        "Meta Graph API..."
+        "Instagram Graph API..."
     )
 
     raw_comments = fetch_all_comments()
@@ -275,25 +322,45 @@ def main() -> None:
         f"Received {len(raw_comments)} comments."
     )
 
-    normalized_comments: list[
+    normalized_content: list[
         dict[str, Any]
     ] = []
 
     for raw_comment in raw_comments:
-        normalized = normalize_comment(
+        normalized_comment = normalize_comment(
             raw_comment
         )
 
-        if normalized is not None:
-            normalized_comments.append(
-                normalized
+        if normalized_comment is not None:
+            normalized_content.append(
+                normalized_comment
             )
 
-    save_comments(normalized_comments)
+        comment_id = str(
+            raw_comment["id"]
+        )
+
+        replies = (
+            raw_comment.get("replies", {})
+            .get("data", [])
+        )
+
+        for raw_reply in replies:
+            normalized_reply = normalize_reply(
+                raw_reply,
+                parent_comment_id=comment_id,
+            )
+
+            if normalized_reply is not None:
+                normalized_content.append(
+                    normalized_reply
+                )
+
+    save_comments(normalized_content)
 
     print(
-        f"Saved {len(normalized_comments)} "
-        "comments to MySQL."
+        f"Saved {len(normalized_content)} "
+        "comments and replies to MySQL."
     )
 
 

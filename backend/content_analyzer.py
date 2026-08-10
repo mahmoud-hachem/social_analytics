@@ -11,6 +11,10 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 
+# ---------------------------------------------------------
+# Environment
+# ---------------------------------------------------------
+
 def require_env(name: str) -> str:
     value = os.getenv(name)
 
@@ -22,6 +26,10 @@ def require_env(name: str) -> str:
     return value.strip()
 
 
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
+
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 DB_NAME = require_env("DB_NAME")
@@ -31,10 +39,15 @@ DB_PASSWORD = require_env("DB_PASSWORD")
 GEMINI_API_KEY = require_env("GEMINI_API_KEY")
 GEMINI_MODEL = require_env("GEMINI_MODEL")
 
+
 gemini_client = genai.Client(
     api_key=GEMINI_API_KEY
 )
 
+
+# ---------------------------------------------------------
+# Allowed AI output
+# ---------------------------------------------------------
 
 LanguageLabel = Literal[
     "english",
@@ -44,11 +57,13 @@ LanguageLabel = Literal[
     "unknown",
 ]
 
+
 SentimentLabel = Literal[
     "positive",
     "neutral",
     "negative",
 ]
+
 
 IntentLabel = Literal[
     "complaint",
@@ -57,13 +72,18 @@ IntentLabel = Literal[
     "suggestion",
     "information_request",
     "general_opinion",
+    "confirmation",
+    "disagreement",
+    "follow_up",
 ]
+
 
 SeverityLabel = Literal[
     "low",
     "medium",
     "high",
 ]
+
 
 TopicLabel = Literal[
     "network_coverage",
@@ -98,6 +118,10 @@ class AnalysisResult(BaseModel):
     )
 
 
+# ---------------------------------------------------------
+# Database
+# ---------------------------------------------------------
+
 def get_database_connection():
     return pymysql.connect(
         host=DB_HOST,
@@ -113,8 +137,11 @@ def get_database_connection():
 
 def get_content_without_analysis() -> list[dict]:
     """
-    Read content rows that do not yet have an analysis.
+    Get content rows that do not yet have analysis.
+
+    If the row is a reply, also load the parent comment text.
     """
+
     connection = get_database_connection()
 
     try:
@@ -123,11 +150,22 @@ def get_content_without_analysis() -> list[dict]:
                 """
                 SELECT
                     c.id,
-                    c.content_text
+                    c.platform,
+                    c.content_type,
+                    c.content_text,
+                    c.parent_external_id,
+                    parent.content_text AS parent_text
                 FROM content AS c
+
                 LEFT JOIN content_analysis AS a
                     ON a.content_id = c.id
+
+                LEFT JOIN content AS parent
+                    ON parent.platform = c.platform
+                    AND parent.external_id = c.parent_external_id
+
                 WHERE a.content_id IS NULL
+
                 ORDER BY c.id
                 """
             )
@@ -137,9 +175,16 @@ def get_content_without_analysis() -> list[dict]:
     finally:
         connection.close()
 
+
+# ---------------------------------------------------------
+# Gemini analysis
+# ---------------------------------------------------------
+
 def analyze_text_with_gemini(
     text: str,
+    parent_text: str | None = None,
 ) -> AnalysisResult:
+
     cleaned_text = text.strip()
 
     if not cleaned_text:
@@ -147,10 +192,147 @@ def analyze_text_with_gemini(
             "Cannot analyze empty content."
         )
 
-    prompt = f"""
-Analyze one telecom-related social-media comment.
+    # -----------------------------------------------------
+    # Context
+    # -----------------------------------------------------
 
-Return these six fields:
+    if parent_text:
+        analysis_context = f"""
+This social-media item is a REPLY to another comment.
+
+PARENT COMMENT:
+{parent_text}
+
+REPLY TO ANALYZE:
+{cleaned_text}
+
+IMPORTANT RULES FOR REPLIES:
+
+Analyze the REPLY itself.
+
+Use the parent comment only to understand what the reply means.
+
+Do not simply copy every label from the parent.
+
+However, if the reply confirms, agrees with, repeats,
+or refers to the same issue as the parent, use the parent's
+topic and situation as context.
+
+Examples:
+
+Parent:
+"The internet has been down since morning."
+
+Reply:
+"You are right."
+
+Correct interpretation:
+- the reply confirms the network problem
+- intent = confirmation
+- sentiment = negative
+- topic = network_outage
+- severity should reflect the confirmed issue
+
+Do NOT classify "you are right" as positive just because
+the wording sounds positive.
+
+
+Parent:
+"The internet is very slow today."
+
+Reply:
+"Same here."
+
+Correct interpretation:
+- intent = confirmation
+- sentiment = negative
+- topic = mobile_data_speed
+
+
+Parent:
+"My balance was deducted twice."
+
+Reply:
+"Same thing happened to me."
+
+Correct interpretation:
+- intent = confirmation
+- sentiment = negative
+- topic = balance_deduction
+- severity may be high because financial harm is involved
+
+
+Parent:
+"The service is amazing."
+
+Reply:
+"Exactly, I love it too."
+
+Correct interpretation:
+- intent = confirmation
+- sentiment = positive
+- topic = positive_feedback
+- severity = low
+
+
+Parent:
+"The network is terrible."
+
+Reply:
+"No, mine is working perfectly."
+
+Correct interpretation:
+- intent = disagreement
+- sentiment = positive or neutral depending on wording
+- topic = network_coverage or the parent's network topic
+- severity = low
+
+
+Parent:
+"My roaming stopped working."
+
+Reply:
+"Did they fix it for you?"
+
+Correct interpretation:
+- intent = follow_up
+- topic = roaming
+- sentiment = neutral
+- severity should be based on what the reply itself expresses,
+  while using the parent for context
+
+
+The parent comment is context.
+The final labels must describe the meaning and role of the REPLY.
+""".strip()
+
+    else:
+        analysis_context = f"""
+This social-media item is a TOP-LEVEL COMMENT.
+
+COMMENT TO ANALYZE:
+{cleaned_text}
+
+Analyze this comment independently.
+""".strip()
+
+    # -----------------------------------------------------
+    # Prompt
+    # -----------------------------------------------------
+
+    prompt = f"""
+You analyze customer social-media content for a Lebanese
+telecommunications company.
+
+The content may be written in:
+
+- English
+- Arabic script
+- Lebanese Arabic dialect
+- Arabizi
+- mixed English / Arabic / Arabizi
+
+Return exactly these fields:
 
 1. language
 2. sentiment
@@ -159,64 +341,298 @@ Return these six fields:
 5. severity
 6. confidence
 
-Language labels:
 
-- english: mainly English
-- arabic: mainly Arabic script
-- arabizi: Arabic or Lebanese written mainly with Latin letters
-- mixed: meaningful combination of languages or writing systems
-- unknown: unclear, emoji-only, or impossible to identify
+LANGUAGE
 
-Sentiment labels:
+Allowed labels:
 
-- positive
-- neutral
-- negative
+english:
+Mainly English.
 
-Topic labels:
+arabic:
+Mainly Arabic written using Arabic script.
+This includes Lebanese dialect and Modern Standard Arabic.
 
-- network_coverage
-- mobile_data_speed
-- network_outage
-- billing
-- balance_deduction
-- package_activation
-- package_renewal
-- customer_service
-- mobile_application
-- roaming
-- pricing
-- sim_card
-- router_device
-- positive_feedback
-- general_question
-- other
+arabizi:
+Arabic or Lebanese speech written mainly using Latin letters,
+with or without numbers.
 
-Intent labels:
+Common Arabizi mappings may include:
 
-- complaint
-- question
-- praise
-- suggestion
-- information_request
-- general_opinion
+2 = ء or أ
+3 = ع
+5 = خ
+6 = ط
+7 = ح
+8 = غ or ق depending on spelling
+9 = ص
 
-Severity labels:
+Examples:
 
-- low: general question, praise, opinion, or minor inconvenience
-- medium: service issue affecting the customer but not a major outage
-- high: outage, repeated service failure, duplicate charging,
-  serious billing issue, or inability to use an essential service
+"ma fi network men l soboh"
+= arabizi
 
-Confidence:
+"leh l internet 3am yi2ta3"
+= arabizi
 
-Return one value from 0 to 1 representing your overall certainty
-about the complete analysis.
+"kif baddi fa3el l bundle"
+= arabizi
 
-Comment:
+"الشبكة مقطوعة من الصبح"
+= arabic
 
-{cleaned_text}
+
+mixed:
+Meaningful combination of English, Arabic script, or Arabizi.
+
+Examples:
+
+"internet ktir slow"
+= mixed
+
+"the service كتير سيئة"
+= mixed
+
+"ما في network اليوم"
+= mixed
+
+
+unknown:
+Emoji-only, punctuation-only, meaningless text,
+or content that cannot reasonably be classified.
+
+
+SENTIMENT
+
+Allowed labels:
+
+positive
+neutral
+negative
+
+Judge the intended meaning.
+
+Do not classify agreement phrases such as:
+
+"you are right"
+
+as positive automatically.
+
+For replies, sentiment must reflect what the reply is agreeing
+with or disagreeing with.
+
+Example:
+
+Parent:
+"The internet is down."
+
+Reply:
+"You are right."
+
+sentiment = negative
+
+
+TOPIC
+
+Choose exactly one primary topic:
+
+network_coverage
+mobile_data_speed
+network_outage
+billing
+balance_deduction
+package_activation
+package_renewal
+customer_service
+mobile_application
+roaming
+pricing
+sim_card
+router_device
+positive_feedback
+general_question
+other
+
+
+Topic examples:
+
+"ما في إرسال بمنطقتنا"
+= network_coverage
+
+"النت كتير بطيء"
+= mobile_data_speed
+
+"الشبكة مقطوعة من الصبح"
+= network_outage
+
+"خصمتولي الرصيد مرتين"
+= balance_deduction
+
+"kif baddi fa3el l bundle"
+= package_activation
+
+"leh l package ghali"
+= pricing
+
+"l app 3am tsakkir"
+= mobile_application
+
+"خدمة الزبائن ساعدتني بسرعة"
+= customer_service
+
+
+For replies:
+
+If the reply depends on the parent's subject,
+use the parent topic as contextual evidence.
+
+Example:
+
+Parent:
+"Internet is extremely slow."
+
+Reply:
+"same here"
+
+topic = mobile_data_speed
+
+
+INTENT
+
+Choose exactly one:
+
+complaint
+
+question
+
+praise
+
+suggestion
+
+information_request
+
+general_opinion
+
+confirmation
+
+disagreement
+
+follow_up
+
+
+Definitions:
+
+complaint:
+The user reports dissatisfaction or a problem.
+
+question:
+The user asks a direct question.
+
+praise:
+The user expresses satisfaction or appreciation.
+
+suggestion:
+The user recommends a change or improvement.
+
+information_request:
+The user asks for instructions, availability,
+pricing, eligibility, locations, or technical information.
+
+general_opinion:
+The user expresses an opinion that does not clearly fit
+another intent.
+
+confirmation:
+The reply agrees with, confirms, or reports the same
+experience described in the parent comment.
+
+Examples:
+
+"same here"
+"you are right"
+"exactly"
+"same problem with me"
+"100% true"
+
+disagreement:
+The reply rejects or contradicts the parent comment.
+
+Examples:
+
+"that's not true"
+"mine is working fine"
+"I disagree"
+
+follow_up:
+The reply continues the conversation and depends on the parent.
+
+Examples:
+
+"did they fix it?"
+"how long did it take?"
+"what did support tell you?"
+
+
+SEVERITY
+
+Choose exactly one:
+
+low:
+Praise, ordinary questions, general opinions,
+small inconvenience, or low-impact discussion.
+
+medium:
+Service problem affecting the customer but without evidence
+of major outage, serious financial impact, or prolonged
+loss of essential service.
+
+high:
+Network outage, repeated or prolonged service failure,
+duplicate charging, serious billing issue,
+balance loss, or inability to use an essential service.
+
+
+For replies:
+
+Use the parent issue as context when the reply confirms
+the same problem.
+
+Example:
+
+Parent:
+"My balance was deducted twice."
+
+Reply:
+"Same here."
+
+The reply confirms a serious financial problem,
+so severity should not automatically be low just because
+the reply is short.
+
+
+CONFIDENCE
+
+Return a number from 0 to 1 representing overall confidence
+in the complete analysis.
+
+Use lower confidence when:
+
+- the text is extremely short
+- the meaning depends heavily on context
+- the wording is ambiguous
+- Arabizi spelling is unclear
+- sarcasm is uncertain
+- multiple topics are equally plausible
+
+
+CONTENT TO ANALYZE
+
+{analysis_context}
 """.strip()
+
+    # -----------------------------------------------------
+    # Gemini request
+    # -----------------------------------------------------
 
     response = gemini_client.models.generate_content(
         model=GEMINI_MODEL,
@@ -248,11 +664,15 @@ Comment:
     )
 
 
+# ---------------------------------------------------------
+# Save analysis
+# ---------------------------------------------------------
 
 def save_analysis(
     content_id: int,
     analysis: AnalysisResult,
 ) -> None:
+
     connection = get_database_connection()
 
     sql = """
@@ -311,8 +731,12 @@ def save_analysis(
         connection.close()
 
 
+# ---------------------------------------------------------
+# Main workflow
+# ---------------------------------------------------------
 
 def main() -> None:
+
     rows = get_content_without_analysis()
 
     print(
@@ -324,12 +748,15 @@ def main() -> None:
     failed = 0
 
     for row in rows:
+
         content_id = row["id"]
         content_text = row["content_text"]
+        parent_text = row["parent_text"]
 
         try:
             analysis = analyze_text_with_gemini(
-                content_text
+                text=content_text,
+                parent_text=parent_text,
             )
 
             save_analysis(
@@ -339,8 +766,13 @@ def main() -> None:
 
             successful += 1
 
+            if parent_text:
+                item_type = "REPLY"
+            else:
+                item_type = "COMMENT"
+
             print(
-                f"Content {content_id}: "
+                f"{item_type} {content_id}: "
                 f"{analysis.language}, "
                 f"{analysis.sentiment}, "
                 f"{analysis.topic}, "
@@ -350,6 +782,7 @@ def main() -> None:
             )
 
         except Exception as exc:
+
             failed += 1
 
             print(
