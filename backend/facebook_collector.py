@@ -24,7 +24,7 @@ def require_env(name: str) -> str:
 META_PAGE_ACCESS_TOKEN = require_env(
     "META_PAGE_ACCESS_TOKEN"
 )
-META_POST_ID = require_env("META_POST_ID")
+META_PAGE_ID = require_env("META_PAGE_ID")
 META_GRAPH_API_VERSION = os.getenv(
     "META_GRAPH_API_VERSION",
     "v26.0",
@@ -68,13 +68,61 @@ def parse_facebook_datetime(
         .replace(tzinfo=None)
     )
 
-
-def fetch_all_comments() -> list[dict[str, Any]]:
+def fetch_all_posts() -> list[dict[str, Any]]:
     url: str | None = (
         f"https://graph.facebook.com/"
         f"{META_GRAPH_API_VERSION}/"
-        f"{META_POST_ID}/comments"
+        f"{META_PAGE_ID}/posts"
     )
+
+    params: dict[str, Any] | None = {
+        "access_token": META_PAGE_ACCESS_TOKEN,
+        "fields": "id,message,created_time",
+        "limit": 100,
+    }
+
+    posts: list[dict[str, Any]] = []
+
+    while url:
+        response = requests.get(
+            url,
+            params=params,
+            timeout=30,
+        )
+
+        payload = response.json()
+
+        if not response.ok or "error" in payload:
+            error = payload.get("error", {})
+
+            raise RuntimeError(
+                error.get(
+                    "message",
+                    "Unknown Meta Graph API error",
+                )
+            )
+
+        posts.extend(
+            payload.get("data", [])
+        )
+
+        url = (
+            payload.get("paging", {})
+            .get("next")
+        )
+
+        params = None
+
+    return posts
+
+def fetch_all_comments(
+    post_id: str,
+) -> list[dict[str, Any]]:
+    url: str | None = (
+    f"https://graph.facebook.com/"
+    f"{META_GRAPH_API_VERSION}/"
+    f"{post_id}/comments"
+)
 
     params: dict[str, Any] | None = {
         "access_token": META_PAGE_ACCESS_TOKEN,
@@ -195,6 +243,7 @@ def fetch_comment_replies(
 
 def normalize_comment(
     comment: dict[str, Any],
+    post_id: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         comment.get("id", "")
@@ -232,7 +281,7 @@ def normalize_comment(
         "content_type": (
             "comment_under_official_post"
         ),
-        "source_post_id": META_POST_ID,
+        "source_post_id": post_id,
         "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
@@ -251,6 +300,7 @@ def normalize_comment(
 def normalize_reply(
     reply: dict[str, Any],
     parent_comment_id: str,
+    post_id: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         reply.get("id", "")
@@ -277,7 +327,7 @@ def normalize_reply(
         "external_id": external_id,
         "platform": "facebook",
         "content_type": "reply_to_comment",
-        "source_post_id": META_POST_ID,
+        "source_post_id": post_id,
         "parent_external_id": parent_comment_id,
         "author_id": anonymize_author(
             external_id
@@ -365,54 +415,86 @@ def save_comments(
 
 def main() -> None:
     print(
-        "Fetching comments from "
-        "Meta Graph API..."
+        "Fetching Facebook posts..."
     )
 
-    raw_comments = fetch_all_comments()
+    posts = fetch_all_posts()
 
     print(
-        f"Received {len(raw_comments)} comments."
+        f"Received {len(posts)} Facebook posts."
     )
 
     normalized_content: list[
         dict[str, Any]
     ] = []
 
-    for raw_comment in raw_comments:
-        normalized_comment = normalize_comment(
-            raw_comment
+    for post in posts:
+        post_id = str(
+            post["id"]
         )
 
-        if normalized_comment is not None:
-            normalized_content.append(
-                normalized_comment
+        print(
+            f"\nFetching comments for "
+            f"Facebook post {post_id}..."
+        )
+
+        raw_comments = fetch_all_comments(
+            post_id
+        )
+
+        print(
+            f"Received {len(raw_comments)} "
+            "comments."
+        )
+
+        for raw_comment in raw_comments:
+            normalized_comment = normalize_comment(
+                raw_comment,
+                post_id,
             )
 
-        comment_id = str(
-            raw_comment["id"]
-        )
-
-        raw_replies = fetch_comment_replies(
-            comment_id
-        )
-
-        for raw_reply in raw_replies:
-            normalized_reply = normalize_reply(
-                raw_reply,
-                parent_comment_id=comment_id,
-            )
-
-            if normalized_reply is not None:
+            if normalized_comment is not None:
                 normalized_content.append(
-                    normalized_reply
+                    normalized_comment
                 )
 
-    save_comments(normalized_content)
+            comment_id = str(
+                raw_comment["id"]
+            )
+
+            raw_replies = fetch_comment_replies(
+                comment_id
+            )
+
+            print(
+                f"Comment {comment_id}: "
+                f"{len(raw_replies)} replies."
+            )
+
+            for raw_reply in raw_replies:
+                normalized_reply = normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    post_id=post_id,
+                )
+
+                if normalized_reply is not None:
+                    normalized_content.append(
+                        normalized_reply
+                    )
+
+    save_comments(
+        normalized_content
+    )
+
+    print(
+        "\nFinished."
+    )
 
     print(
         f"Saved {len(normalized_content)} "
-        "comments and replies to MySQL."
+        "Facebook comments and replies "
+        "to MySQL."
     )
 
 

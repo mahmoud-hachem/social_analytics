@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Literal
 
 import pymysql
@@ -741,6 +742,10 @@ def main() -> None:
                 f"{analysis.confidence:.2f}"
             )
 
+            # Free-tier quota is 5 requests/minute.
+            # 13 seconds between requests keeps us safely below it.
+            time.sleep(13)
+
         except Exception as exc:
 
             failed += 1
@@ -749,6 +754,10 @@ def main() -> None:
                 f"Failed content {content_id}: "
                 f"{exc}"
             )
+
+            # Avoid immediately sending another request
+            # after hitting a rate limit.
+            time.sleep(13)
 
     print(
         f"Finished. Successful: {successful}. "

@@ -24,7 +24,9 @@ def require_env(name: str) -> str:
 META_PAGE_ACCESS_TOKEN = require_env(
     "META_PAGE_ACCESS_TOKEN"
 )
-INSTAGRAM_POST_ID = require_env("INSTAGRAM_POST_ID")
+INSTAGRAM_ACCOUNT_ID = require_env(
+    "INSTAGRAM_ACCOUNT_ID"
+)
 META_GRAPH_API_VERSION = os.getenv(
     "META_GRAPH_API_VERSION",
     "v26.0",
@@ -68,13 +70,70 @@ def parse_instagram_datetime(
         .replace(tzinfo=None)
     )
 
-
-def fetch_all_comments() -> list[dict[str, Any]]:
+def fetch_all_media() -> list[dict[str, Any]]:
     url: str | None = (
         f"https://graph.facebook.com/"
         f"{META_GRAPH_API_VERSION}/"
-        f"{INSTAGRAM_POST_ID}/comments"
+        f"{INSTAGRAM_ACCOUNT_ID}/media"
     )
+
+    params: dict[str, Any] | None = {
+        "access_token": META_PAGE_ACCESS_TOKEN,
+        "fields": (
+            "id,caption,media_type,"
+            "timestamp,permalink"
+        ),
+        "limit": 100,
+    }
+
+    media_items: list[dict[str, Any]] = []
+
+    while url:
+        response = requests.get(
+            url,
+            params=params,
+            timeout=30,
+        )
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                "Meta returned a non-JSON response: "
+                f"{response.text}"
+            ) from exc
+
+        if not response.ok or "error" in payload:
+            error = payload.get("error", {})
+
+            message = error.get(
+                "message",
+                "Unknown Meta Graph API error",
+            )
+
+            raise RuntimeError(message)
+
+        media_items.extend(
+            payload.get("data", [])
+        )
+
+        url = (
+            payload.get("paging", {})
+            .get("next")
+        )
+
+        params = None
+
+    return media_items
+
+def fetch_all_comments(
+    media_id: str,
+) -> list[dict[str, Any]]:
+    url: str | None = (
+    f"https://graph.facebook.com/"
+    f"{META_GRAPH_API_VERSION}/"
+    f"{media_id}/comments"
+)
 
     params: dict[str, Any] | None = {
         "access_token": META_PAGE_ACCESS_TOKEN,
@@ -142,6 +201,7 @@ def fetch_all_comments() -> list[dict[str, Any]]:
 
 def normalize_comment(
     comment: dict[str, Any],
+    media_id: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         comment.get("id", "")
@@ -179,7 +239,7 @@ def normalize_comment(
         "content_type": (
             "comment_under_official_post"
         ),
-        "source_post_id": INSTAGRAM_POST_ID,
+        "source_post_id": media_id,
         "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
@@ -198,6 +258,7 @@ def normalize_comment(
 def normalize_reply(
     reply: dict[str, Any],
     parent_comment_id: str,
+    media_id: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         reply.get("id", "")
@@ -224,7 +285,7 @@ def normalize_reply(
         "external_id": external_id,
         "platform": "instagram",
         "content_type": "reply_to_comment",
-        "source_post_id": INSTAGRAM_POST_ID,
+        "source_post_id": media_id,
         "parent_external_id": parent_comment_id,
         "author_id": anonymize_author(
             external_id
@@ -312,55 +373,89 @@ def save_comments(
 
 def main() -> None:
     print(
-        "Fetching comments from "
-        "Instagram Graph API..."
+        "Fetching Instagram media..."
     )
 
-    raw_comments = fetch_all_comments()
+    media_items = fetch_all_media()
 
     print(
-        f"Received {len(raw_comments)} comments."
+        f"Received {len(media_items)} "
+        "Instagram posts."
     )
 
     normalized_content: list[
         dict[str, Any]
     ] = []
 
-    for raw_comment in raw_comments:
-        normalized_comment = normalize_comment(
-            raw_comment
+    for media in media_items:
+        media_id = str(
+            media["id"]
         )
 
-        if normalized_comment is not None:
-            normalized_content.append(
-                normalized_comment
+        print(
+            f"\nFetching comments for "
+            f"Instagram post {media_id}..."
+        )
+
+        raw_comments = fetch_all_comments(
+            media_id
+        )
+
+        print(
+            f"Received {len(raw_comments)} "
+            "comments."
+        )
+
+        for raw_comment in raw_comments:
+            normalized_comment = normalize_comment(
+                raw_comment,
+                media_id,
             )
 
-        comment_id = str(
-            raw_comment["id"]
-        )
-
-        replies = (
-            raw_comment.get("replies", {})
-            .get("data", [])
-        )
-
-        for raw_reply in replies:
-            normalized_reply = normalize_reply(
-                raw_reply,
-                parent_comment_id=comment_id,
-            )
-
-            if normalized_reply is not None:
+            if normalized_comment is not None:
                 normalized_content.append(
-                    normalized_reply
+                    normalized_comment
                 )
 
-    save_comments(normalized_content)
+            comment_id = str(
+                raw_comment["id"]
+            )
+
+            replies = (
+                raw_comment
+                .get("replies", {})
+                .get("data", [])
+            )
+
+            print(
+                f"Comment {comment_id}: "
+                f"{len(replies)} replies."
+            )
+
+            for raw_reply in replies:
+                normalized_reply = normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    media_id=media_id,
+                )
+
+                if normalized_reply is not None:
+                    normalized_content.append(
+                        normalized_reply
+                    )
+
+    save_comments(
+        normalized_content
+    )
+
+    print(
+        "\nFinished."
+    )
 
     print(
         f"Saved {len(normalized_content)} "
-        "comments and replies to MySQL."
+        "Instagram comments and replies "
+        "to MySQL."
     )
 
 
