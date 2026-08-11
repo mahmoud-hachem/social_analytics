@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
+
 def require_env(name: str) -> str:
     value = os.getenv(name)
 
@@ -20,6 +21,7 @@ def require_env(name: str) -> str:
         )
 
     return value.strip()
+
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
@@ -45,6 +47,29 @@ LanguageLabel = Literal[
 ]
 
 
+PostTopicLabel = Literal[
+    "new_service",
+    "new_feature",
+    "new_offer_bundle",
+    "service_update",
+    "network_upgrade",
+    "network_expansion",
+    "network_maintenance",
+    "new_device",
+    "app_digital_feature",
+    "roaming_service",
+    "esim_service",
+    "customer_service_update",
+    "pricing_promotion",
+    "availability_announcement",
+    "how_to_guide",
+    "company_announcement",
+    "event_campaign",
+    "general_information",
+    "other",
+]
+
+
 SentimentLabel = Literal[
     "positive",
     "neutral",
@@ -62,6 +87,8 @@ IntentLabel = Literal[
     "confirmation",
     "disagreement",
     "follow_up",
+    "informational_response",
+    "mockery",
 ]
 
 
@@ -82,11 +109,11 @@ TopicLabel = Literal[
     "package_renewal",
     "customer_service",
     "mobile_application",
+    "packages_offers",
     "roaming",
     "pricing",
     "sim_card",
     "router_device",
-    "positive_feedback",
     "general_question",
     "other",
 ]
@@ -94,6 +121,7 @@ TopicLabel = Literal[
 
 class AnalysisResult(BaseModel):
     language: LanguageLabel
+    post_topic: PostTopicLabel
     sentiment: SentimentLabel
     topic: TopicLabel
     intent: IntentLabel
@@ -135,6 +163,8 @@ def get_content_without_analysis() -> list[dict]:
                     c.id,
                     c.platform,
                     c.content_type,
+                    c.source_post_id,
+                    c.source_post_text,
                     c.content_text,
                     c.parent_external_id,
                     parent.content_text AS parent_text
@@ -161,6 +191,7 @@ def get_content_without_analysis() -> list[dict]:
 
 def analyze_text_with_gemini(
     text: str,
+    source_post_text: str,
     parent_text: str | None = None,
 ) -> AnalysisResult:
 
@@ -171,8 +202,22 @@ def analyze_text_with_gemini(
             "Cannot analyze empty content."
         )
 
+    post_context = f"""
+ORIGINAL SOCIAL MEDIA POST:
+{source_post_text}
+
+Determine post_topic from the ORIGINAL POST itself.
+
+post_topic describes what the company's Facebook or Instagram
+post is mainly about.
+
+Do not determine post_topic from the customer's comment or reply.
+""".strip()
+
     if parent_text:
         analysis_context = f"""
+{post_context}
+
 This social-media item is a REPLY to another comment.
 
 PARENT COMMENT:
@@ -246,7 +291,7 @@ Reply:
 Correct interpretation:
 - intent = confirmation
 - sentiment = positive
-- topic = positive_feedback
+- topic should describe what is being praised
 - severity = low
 
 
@@ -277,18 +322,33 @@ Correct interpretation:
   while using the parent for context
 
 
-The parent comment is context.
+The original post provides the overall subject.
+
+The parent comment provides reply context.
+
 The final labels must describe the meaning and role of the REPLY.
 """.strip()
 
     else:
         analysis_context = f"""
+{post_context}
+
 This social-media item is a TOP-LEVEL COMMENT.
 
 COMMENT TO ANALYZE:
 {cleaned_text}
 
-Analyze this comment independently.
+Analyze this comment itself.
+
+Use the original post as context when the comment is vague,
+for example:
+
+"nice one"
+"how can I get this?"
+"how much?"
+"does it work?"
+
+The original post can explain what the customer is referring to.
 """.strip()
 
 
@@ -307,11 +367,12 @@ The content may be written in:
 Return exactly these fields:
 
 1. language
-2. sentiment
-3. topic
-4. intent
-5. severity
-6. confidence
+2. post_topic
+3. sentiment
+4. topic
+5. intent
+6. severity
+7. confidence
 
 
 LANGUAGE
@@ -374,6 +435,122 @@ Emoji-only, punctuation-only, meaningless text,
 or content that cannot reasonably be classified.
 
 
+POST TOPIC
+
+Determine this only from the ORIGINAL SOCIAL MEDIA POST.
+
+Choose exactly one:
+
+new_service
+new_feature
+new_offer_bundle
+service_update
+network_upgrade
+network_expansion
+network_maintenance
+new_device
+app_digital_feature
+roaming_service
+esim_service
+customer_service_update
+pricing_promotion
+availability_announcement
+how_to_guide
+company_announcement
+event_campaign
+general_information
+other
+
+
+Definitions:
+
+new_service:
+The post announces a newly available service.
+
+new_feature:
+The post introduces a new capability or feature.
+
+new_offer_bundle:
+The post announces or promotes a mobile/data bundle or offer.
+
+service_update:
+The post communicates an update or change to an existing service.
+
+network_upgrade:
+The post announces improvements or modernization to the network.
+
+network_expansion:
+The post announces new coverage areas, sites, antennas,
+or network expansion.
+
+network_maintenance:
+The post discusses maintenance or technical work on the network.
+
+new_device:
+The post introduces or promotes a router, device,
+or other hardware product.
+
+app_digital_feature:
+The post introduces an app feature, digital tool,
+bot, online functionality, or digital service feature.
+
+roaming_service:
+The post primarily concerns roaming.
+
+esim_service:
+The post primarily concerns eSIM.
+
+customer_service_update:
+The post announces something related to customer support
+or customer-care channels.
+
+pricing_promotion:
+The post primarily promotes a price, discount,
+promotion, or special pricing.
+
+availability_announcement:
+The post announces that a product or service is now available.
+
+how_to_guide:
+The post primarily explains how to perform an action
+or use a service.
+
+company_announcement:
+The post is primarily a corporate/company announcement.
+
+event_campaign:
+The post concerns an event, campaign, sponsorship,
+competition, or similar activity.
+
+general_information:
+The post provides general information that does not fit
+a more specific category.
+
+other:
+Use only when no other post topic reasonably applies.
+
+
+IMPORTANT:
+
+post_topic describes the ORIGINAL POST.
+
+topic describes the CUSTOMER COMMENT OR REPLY.
+
+They may be different.
+
+Example:
+
+Original post:
+"Introducing our new 4G router."
+
+post_topic = new_device
+
+Comment:
+"Your customer service never answers."
+
+topic = customer_service
+
+
 SENTIMENT
 
 Allowed labels:
@@ -417,11 +594,11 @@ package_activation
 package_renewal
 customer_service
 mobile_application
+packages_offers
 roaming
 pricing
 sim_card
 router_device
-positive_feedback
 general_question
 other
 
@@ -443,6 +620,9 @@ Topic examples:
 "kif baddi fa3el l bundle"
 = package_activation
 
+"Why is there no 600 GB bundle?"
+= packages_offers
+
 "leh l package ghali"
 = pricing
 
@@ -451,6 +631,43 @@ Topic examples:
 
 "خدمة الزبائن ساعدتني بسرعة"
 = customer_service
+
+
+IMPORTANT TOPIC RULE:
+
+If the customer text is vague and depends on the original post,
+use the post context to determine what the customer is referring to.
+
+Example:
+
+Original post:
+"Introducing the new 4G router."
+
+Comment:
+"nice one"
+
+topic = router_device
+
+Original post:
+"Introducing the new 4G router."
+
+Comment:
+"how can I get this product?"
+
+topic = router_device
+
+However, if the customer clearly talks about a different issue,
+classify the customer's actual issue.
+
+Example:
+
+Original post:
+"Introducing the new 4G router."
+
+Comment:
+"Your customer service never answers."
+
+topic = customer_service
 
 
 For replies:
@@ -491,6 +708,10 @@ disagreement
 
 follow_up
 
+informational_response
+
+mockery
+
 
 Definitions:
 
@@ -498,7 +719,8 @@ complaint:
 The user reports dissatisfaction or a problem.
 
 question:
-The user asks a direct question.
+The user asks a direct question that does not fit a more
+specific information request.
 
 praise:
 The user expresses satisfaction or appreciation.
@@ -508,7 +730,8 @@ The user recommends a change or improvement.
 
 information_request:
 The user asks for instructions, availability,
-pricing, eligibility, locations, or technical information.
+pricing, eligibility, locations, product details,
+or technical information.
 
 general_opinion:
 The user expresses an opinion that does not clearly fit
@@ -543,6 +766,28 @@ Examples:
 "did they fix it?"
 "how long did it take?"
 "what did support tell you?"
+
+informational_response:
+The reply provides an answer, fact, explanation, instruction,
+or other information in response to the parent comment.
+
+Examples:
+
+"It costs $36."
+"The $95 plan has more data."
+"You can buy it from the store."
+"Yes, it works with a power bank."
+
+mockery:
+The user mocks, ridicules, or sarcastically makes fun of the company,
+service, product, or situation rather than making a straightforward
+complaint.
+
+Examples:
+
+"w l cherkeh ma ma3a khabar hahahaha"
+"bravo 3laykon 😂"
+"great service as always 🙄"
 
 
 SEVERITY
@@ -644,6 +889,7 @@ def save_analysis(
         INSERT INTO content_analysis (
             content_id,
             language,
+            post_topic,
             sentiment,
             topic,
             intent,
@@ -653,6 +899,7 @@ def save_analysis(
         VALUES (
             %(content_id)s,
             %(language)s,
+            %(post_topic)s,
             %(sentiment)s,
             %(topic)s,
             %(intent)s,
@@ -661,6 +908,7 @@ def save_analysis(
         )
         ON DUPLICATE KEY UPDATE
             language = VALUES(language),
+            post_topic = VALUES(post_topic),
             sentiment = VALUES(sentiment),
             topic = VALUES(topic),
             intent = VALUES(intent),
@@ -672,6 +920,7 @@ def save_analysis(
     values = {
         "content_id": content_id,
         "language": analysis.language,
+        "post_topic": analysis.post_topic,
         "sentiment": analysis.sentiment,
         "topic": analysis.topic,
         "intent": analysis.intent,
@@ -712,11 +961,15 @@ def main() -> None:
 
         content_id = row["id"]
         content_text = row["content_text"]
+        source_post_text = (
+            row["source_post_text"] or ""
+        )
         parent_text = row["parent_text"]
 
         try:
             analysis = analyze_text_with_gemini(
                 text=content_text,
+                source_post_text=source_post_text,
                 parent_text=parent_text,
             )
 
@@ -735,6 +988,7 @@ def main() -> None:
             print(
                 f"{item_type} {content_id}: "
                 f"{analysis.language}, "
+                f"post={analysis.post_topic}, "
                 f"{analysis.sentiment}, "
                 f"{analysis.topic}, "
                 f"{analysis.intent}, "

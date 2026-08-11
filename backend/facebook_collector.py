@@ -244,6 +244,7 @@ def fetch_comment_replies(
 def normalize_comment(
     comment: dict[str, Any],
     post_id: str,
+    post_text: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         comment.get("id", "")
@@ -282,6 +283,7 @@ def normalize_comment(
             "comment_under_official_post"
         ),
         "source_post_id": post_id,
+        "source_post_text": post_text,
         "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
@@ -301,6 +303,7 @@ def normalize_reply(
     reply: dict[str, Any],
     parent_comment_id: str,
     post_id: str,
+    post_text: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         reply.get("id", "")
@@ -328,6 +331,7 @@ def normalize_reply(
         "platform": "facebook",
         "content_type": "reply_to_comment",
         "source_post_id": post_id,
+        "source_post_text": post_text,
         "parent_external_id": parent_comment_id,
         "author_id": anonymize_author(
             external_id
@@ -367,6 +371,7 @@ def save_comments(
             platform,
             content_type,
             source_post_id,
+            source_post_text,
             parent_external_id,
             author_id,
             content_text,
@@ -378,6 +383,7 @@ def save_comments(
             %(platform)s,
             %(content_type)s,
             %(source_post_id)s,
+            %(source_post_text)s,
             %(parent_external_id)s,
             %(author_id)s,
             %(content_text)s,
@@ -387,6 +393,7 @@ def save_comments(
         ON DUPLICATE KEY UPDATE
             content_type = VALUES(content_type),
             source_post_id = VALUES(source_post_id),
+            source_post_text = VALUES(source_post_text),
             parent_external_id = VALUES(parent_external_id),
             author_id = VALUES(author_id),
             content_text = VALUES(content_text),
@@ -433,9 +440,17 @@ def main() -> None:
             post["id"]
         )
 
+        post_text = str(
+            post.get("message", "")
+        ).strip()
+
         print(
             f"\nFetching comments for "
             f"Facebook post {post_id}..."
+        )
+
+        print(
+            f"Post text: {post_text}"
         )
 
         raw_comments = fetch_all_comments(
@@ -451,6 +466,7 @@ def main() -> None:
             normalized_comment = normalize_comment(
                 raw_comment,
                 post_id,
+                post_text,
             )
 
             if normalized_comment is not None:
@@ -476,6 +492,7 @@ def main() -> None:
                     raw_reply,
                     parent_comment_id=comment_id,
                     post_id=post_id,
+                    post_text=post_text,
                 )
 
                 if normalized_reply is not None:

@@ -202,6 +202,7 @@ def fetch_all_comments(
 def normalize_comment(
     comment: dict[str, Any],
     media_id: str,
+    post_text: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         comment.get("id", "")
@@ -240,6 +241,7 @@ def normalize_comment(
             "comment_under_official_post"
         ),
         "source_post_id": media_id,
+        "source_post_text": post_text,
         "parent_external_id": None,
         "author_id": anonymize_author(
             external_id
@@ -259,6 +261,7 @@ def normalize_reply(
     reply: dict[str, Any],
     parent_comment_id: str,
     media_id: str,
+    post_text: str,
 ) -> dict[str, Any] | None:
     external_id = str(
         reply.get("id", "")
@@ -286,6 +289,7 @@ def normalize_reply(
         "platform": "instagram",
         "content_type": "reply_to_comment",
         "source_post_id": media_id,
+        "source_post_text": post_text,
         "parent_external_id": parent_comment_id,
         "author_id": anonymize_author(
             external_id
@@ -320,37 +324,40 @@ def save_comments(
         return
 
     sql = """
-        INSERT INTO content (
-            external_id,
-            platform,
-            content_type,
-            source_post_id,
-            parent_external_id,
-            author_id,
-            content_text,
-            published_at,
-            likes_count
-        )
-        VALUES (
-            %(external_id)s,
-            %(platform)s,
-            %(content_type)s,
-            %(source_post_id)s,
-            %(parent_external_id)s,
-            %(author_id)s,
-            %(content_text)s,
-            %(published_at)s,
-            %(likes_count)s
-        )
-        ON DUPLICATE KEY UPDATE
-            content_type = VALUES(content_type),
-            source_post_id = VALUES(source_post_id),
-            parent_external_id = VALUES(parent_external_id),
-            author_id = VALUES(author_id),
-            content_text = VALUES(content_text),
-            published_at = VALUES(published_at),
-            likes_count = VALUES(likes_count)
-    """
+    INSERT INTO content (
+        external_id,
+        platform,
+        content_type,
+        source_post_id,
+        source_post_text,
+        parent_external_id,
+        author_id,
+        content_text,
+        published_at,
+        likes_count
+    )
+    VALUES (
+        %(external_id)s,
+        %(platform)s,
+        %(content_type)s,
+        %(source_post_id)s,
+        %(source_post_text)s,
+        %(parent_external_id)s,
+        %(author_id)s,
+        %(content_text)s,
+        %(published_at)s,
+        %(likes_count)s
+    )
+    ON DUPLICATE KEY UPDATE
+        content_type = VALUES(content_type),
+        source_post_id = VALUES(source_post_id),
+        source_post_text = VALUES(source_post_text),
+        parent_external_id = VALUES(parent_external_id),
+        author_id = VALUES(author_id),
+        content_text = VALUES(content_text),
+        published_at = VALUES(published_at),
+        likes_count = VALUES(likes_count)
+"""
 
     connection = get_database_connection()
 
@@ -392,9 +399,17 @@ def main() -> None:
             media["id"]
         )
 
+        post_text = str(
+            media.get("caption", "")
+        ).strip()
+
         print(
             f"\nFetching comments for "
             f"Instagram post {media_id}..."
+        )
+
+        print(
+            f"Post caption: {post_text}"
         )
 
         raw_comments = fetch_all_comments(
@@ -410,6 +425,7 @@ def main() -> None:
             normalized_comment = normalize_comment(
                 raw_comment,
                 media_id,
+                post_text,
             )
 
             if normalized_comment is not None:
@@ -437,6 +453,7 @@ def main() -> None:
                     raw_reply,
                     parent_comment_id=comment_id,
                     media_id=media_id,
+                    post_text=post_text,
                 )
 
                 if normalized_reply is not None:
