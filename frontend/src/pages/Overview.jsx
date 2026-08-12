@@ -4,6 +4,8 @@ import MetricCards from "../components/cards/MetricCards"
 import SentimentDistributionChart from "../components/charts/SentimentDistributionChart"
 import TopTopicsChart from "../components/charts/TopTopicsChart"
 import IntentDistributionChart from "../components/charts/IntentDistributionChart"
+import PlatformDistribution from "../components/charts/PlatformDistribution"
+
 
 function Overview() {
     const [showFilters, setShowFilters] = useState(false)
@@ -79,15 +81,20 @@ function Overview() {
             <MetricCards />
 
 <section className="dashboard-charts">
+
     <SentimentDistributionChart />
 
     <TopTopicsChart />
+
 </section>
+
 
 <section className="dashboard-charts">
 
     <IntentDistributionChart />
 
+    <PlatformDistribution />
+  
 </section>
 
         </div>

@@ -1083,3 +1083,161 @@ select {
 
     margin-top: 10px;
 }
+
+/* =========================================================
+   PLATFORM DISTRIBUTION
+========================================================= */
+
+.platform-distribution {
+    min-height: 250px;
+
+    display: flex;
+    flex-direction: column;
+
+    justify-content: center;
+
+    gap: 26px;
+
+    padding: 10px 8px;
+}
+
+
+.platform-item {
+    width: 100%;
+}
+
+
+.platform-item-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+}
+
+
+.platform-name-group {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+/* =========================================================
+   PLATFORM LOGOS
+========================================================= */
+
+.platform-logo-container {
+    width: 42px;
+    height: 42px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #ffffff;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+}
+
+
+.platform-logo {
+    width: 25px;
+    height: 25px;
+
+    object-fit: contain;
+}
+
+
+.platform-name {
+    color: var(--text-primary);
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+.platform-percentage {
+    font-family: "Outfit", sans-serif;
+
+    color: var(--text-primary);
+
+    font-size: 20px;
+    font-weight: 700;
+}
+
+
+.platform-count {
+    margin:
+        8px 0 10px 54px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   PLATFORM PROGRESS BAR
+========================================================= */
+
+.platform-progress {
+    width: 100%;
+    height: 7px;
+
+    overflow: hidden;
+
+    background: #edf1f3;
+
+    border-radius: 20px;
+}
+
+
+.platform-progress-fill {
+    height: 100%;
+
+    background: var(--touch-primary);
+
+    border-radius: 20px;
+
+    transition:
+        width 0.4s ease;
+}
+
+
+/* =========================================================
+   PLATFORM TOTAL
+========================================================= */
+
+.platform-total {
+    margin-top: 8px;
+
+    padding-top: 16px;
+
+    border-top:
+        1px solid var(--border);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+.platform-total strong {
+    color: var(--text-primary);
+
+    font-family: "Outfit", sans-serif;
+
+    font-size: 15px;
+}

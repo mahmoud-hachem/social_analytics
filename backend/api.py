@@ -331,3 +331,57 @@ def get_intent_distribution():
         "intents": intents
     }
 
+@app.get("/api/platforms")
+def get_platform_distribution():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    platform,
+                    COUNT(*) AS count
+                FROM content
+                GROUP BY platform
+                ORDER BY count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    total = sum(
+        int(row["count"] or 0)
+        for row in rows
+    )
+
+    platforms = []
+
+    for row in rows:
+        count = int(
+            row["count"] or 0
+        )
+
+        if total > 0:
+            percentage = round(
+                (count / total) * 100,
+                1,
+            )
+        else:
+            percentage = 0.0
+
+        platforms.append(
+            {
+                "platform": row["platform"],
+                "count": count,
+                "percentage": percentage,
+            }
+        )
+
+    return {
+        "total": total,
+        "platforms": platforms,
+    }

@@ -56,3 +56,4 @@ export async function getIntents() {
 
     return response.json()
 }
+
