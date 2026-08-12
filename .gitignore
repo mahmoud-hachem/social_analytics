@@ -2,6 +2,8 @@
 venv/
 .vscode/
 
+frontend/public/design.png
+
 # Logs
 logs
 *.log
