@@ -1,5 +1,6 @@
 import { useState } from "react"
 import FilterBar from "../components/filters/FilterBar"
+import MetricCards from "../components/cards/MetricCards"
 
 function Overview() {
     const [showFilters, setShowFilters] = useState(false)
@@ -72,11 +73,13 @@ function Overview() {
             )}
 
 
-            <section className="dashboard-placeholder">
-                <p>
-                    Dashboard content will go here.
-                </p>
-            </section>
+            <MetricCards />
+
+<section className="dashboard-placeholder">
+    <p>
+        Charts will go here.
+    </p>
+</section>
 
         </div>
     )
