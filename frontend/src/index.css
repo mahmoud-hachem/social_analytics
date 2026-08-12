@@ -794,3 +794,31 @@ select {
 
     font-size: 12px;
 }
+
+/* =========================================================
+   METRIC LOADING / ERROR STATE
+========================================================= */
+
+.metric-status {
+    margin-top: 28px;
+
+    padding: 22px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+}
+
+
+.metric-error {
+    color: #b42318;
+
+    background: #fff5f5;
+
+    border-color: #fecdca;
+}

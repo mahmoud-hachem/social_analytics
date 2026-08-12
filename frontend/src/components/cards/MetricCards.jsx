@@ -1,4 +1,9 @@
 import {
+    useEffect,
+    useState,
+} from "react"
+
+import {
     MessagesSquare,
     Frown,
     MessageCircleWarning,
@@ -7,35 +12,84 @@ import {
 
 import MetricCard from "./MetricCard"
 
+import {
+    getSummary,
+} from "../../api/analyticsApi"
+
 
 function MetricCards() {
+    const [summary, setSummary] = useState(null)
+
+    const [loading, setLoading] = useState(true)
+
+    const [error, setError] = useState(null)
+
+
+    useEffect(() => {
+        async function loadSummary() {
+            try {
+                const data = await getSummary()
+
+                setSummary(data)
+            } catch (err) {
+                setError(err.message)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadSummary()
+    }, [])
+
+
+    if (loading) {
+        return (
+            <div className="metric-status">
+                Loading dashboard data...
+            </div>
+        )
+    }
+
+
+    if (error) {
+        return (
+            <div className="metric-status metric-error">
+                {error}
+            </div>
+        )
+    }
+
+
     return (
         <section className="metric-grid">
 
             <MetricCard
                 title="Total Content"
-                value="53"
-                subtitle="Facebook + Instagram"
+                value={summary.total_content}
+                subtitle="All Platforms"
                 icon={MessagesSquare}
             />
 
+
             <MetricCard
                 title="Negative"
-                value="41%"
+                value={`${summary.negative_percentage}%`}
                 subtitle="Negative sentiment"
                 icon={Frown}
             />
 
+
             <MetricCard
                 title="Complaints"
-                value="24"
+                value={summary.complaints}
                 subtitle="Detected complaints"
                 icon={MessageCircleWarning}
             />
 
+
             <MetricCard
                 title="High Severity"
-                value="9"
+                value={summary.high_severity}
                 subtitle="Needs attention"
                 icon={ShieldAlert}
             />
