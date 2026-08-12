@@ -1,111 +1,444 @@
+@import url(
+    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap"
+);
+
+
+/* -----------------------------------------
+   GLOBAL VARIABLES
+----------------------------------------- */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    --touch-primary: #08a6b5;
+    --touch-primary-dark: #078b99;
+    --touch-primary-light: #e7f8fa;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+    --background: #f6f9fb;
+    --surface: #ffffff;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    --text-primary: #17212b;
+    --text-secondary: #667085;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+    --border: #e5eaee;
+
+    --sidebar-width: 250px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* -----------------------------------------
+   RESET
+----------------------------------------- */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    margin: 0;
+    min-height: 100%;
 }
 
 body {
-  margin: 0;
+    font-family: "Inter", sans-serif;
+
+    background: var(--background);
+    color: var(--text-primary);
+
+    -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+button {
+    font: inherit;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+
+/* -----------------------------------------
+   DASHBOARD LAYOUT
+----------------------------------------- */
+
+.dashboard-layout {
+    display: flex;
+    min-height: 100vh;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+
+/* -----------------------------------------
+   SIDEBAR
+----------------------------------------- */
+
+.sidebar {
+    width: 250px;
+    min-width: 250px;
+    min-height: 100vh;
+
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+
+    padding: 22px 14px;
+
+    transition:
+        width 0.25s ease,
+        min-width 0.25s ease,
+        padding 0.25s ease;
+
+    overflow: hidden;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+
+.sidebar.sidebar-collapsed {
+    width: 68px;
+    min-width: 68px;
+
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+
+/* -----------------------------------------
+   OPEN SIDEBAR HEADER
+----------------------------------------- */
+
+.sidebar-brand {
+    height: 50px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 26px;
+
+    padding: 0 5px;
+}
+
+
+.brand-left {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+}
+
+
+.touch-logo {
+    width: 42px;
+    height: 42px;
+
+    object-fit: contain;
+
+    flex-shrink: 0;
+}
+
+
+.brand-name {
+    font-family: "Outfit", sans-serif;
+
+    font-size: 23px;
+    font-weight: 700;
+
+    letter-spacing: -0.7px;
+
+    white-space: nowrap;
+
+    color: var(--text-primary);
+}
+
+
+/* -----------------------------------------
+   SIDEBAR TOGGLE
+----------------------------------------- */
+
+.sidebar-toggle {
+    width: 38px;
+    height: 38px;
+
+    flex-shrink: 0;
+
+    border: none;
+    background: transparent;
+
+    color: #667085;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+
+.sidebar-toggle:hover {
+    background: #f2f4f7;
+
+    color: var(--text-primary);
+}
+
+
+/* -----------------------------------------
+   COLLAPSED HEADER
+----------------------------------------- */
+
+.collapsed-header {
+    height: 50px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 26px;
+}
+
+
+.collapsed-brand-button {
+    position: relative;
+
+    width: 46px;
+    height: 46px;
+
+    border: none;
+    background: transparent;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease;
+}
+
+
+.collapsed-brand-button:hover {
+    background: #f2f4f7;
+}
+
+
+/* Touch logo shown normally */
+
+.collapsed-touch-logo {
+    width: 42px;
+    height: 42px;
+
+    object-fit: contain;
+
+    opacity: 1;
+
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+/* Open icon hidden normally */
+
+.collapsed-open-icon {
+    position: absolute;
+
+    color: var(--text-primary);
+
+    opacity: 0;
+
+    transform: scale(0.85);
+
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+/* When mouse enters:
+   hide Touch logo */
+
+.collapsed-brand-button:hover
+.collapsed-touch-logo {
+    opacity: 0;
+
+    transform: scale(0.85);
+}
+
+
+/* And show open-sidebar icon */
+
+.collapsed-brand-button:hover
+.collapsed-open-icon {
+    opacity: 1;
+
+    transform: scale(1);
+}
+
+
+/* -----------------------------------------
+   NAVIGATION
+----------------------------------------- */
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+
+    gap: 7px;
+}
+
+
+.sidebar-item {
+    width: 100%;
+    height: 46px;
+
+    border: none;
+    background: transparent;
+
+    display: flex;
+    align-items: center;
+
+    gap: 13px;
+
+    padding: 0 14px;
+
+    border-radius: 11px;
+
+    cursor: pointer;
+
+    color: #475467;
+
+    font-size: 15px;
+    font-weight: 500;
+
+    white-space: nowrap;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+
+.sidebar-icon {
+    flex-shrink: 0;
+}
+
+
+.sidebar-item:hover {
+    background: var(--touch-primary-light);
+
+    color: var(--touch-primary-dark);
+}
+
+
+.sidebar-item.active {
+    background: var(--touch-primary);
+
+    color: white;
+
+    box-shadow:
+        0 5px 14px
+        rgba(8, 166, 181, 0.18);
+}
+
+
+/* -----------------------------------------
+   COLLAPSED ITEMS
+----------------------------------------- */
+
+.sidebar-collapsed .sidebar-item {
+    width: 46px;
+
+    padding: 0;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    justify-content: center;
+}
+
+
+.sidebar-collapsed .sidebar-item.active {
+    background: var(--touch-primary-light);
+
+    color: var(--touch-primary-dark);
+
+    box-shadow: none;
+}
+
+/* -----------------------------------------
+   MAIN AREA
+----------------------------------------- */
+
+.dashboard-main {
+    flex: 1;
+
+    padding: 34px 38px;
+}
+
+
+/* -----------------------------------------
+   OVERVIEW
+----------------------------------------- */
+
+.overview-page {
+    width: 100%;
+}
+
+
+/* -----------------------------------------
+   PAGE HEADER
+----------------------------------------- */
+
+.page-header h1 {
+    margin: 0;
+
+    font-family: "Outfit", sans-serif;
+
+    font-size: 34px;
+    font-weight: 700;
+
+    letter-spacing: -0.8px;
+
+    color: var(--text-primary);
+}
+
+
+.page-header p {
+    margin-top: 8px;
+    margin-bottom: 0;
+
+    color: var(--text-secondary);
+
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+
+/* -----------------------------------------
+   DASHBOARD CONTENT AREA
+----------------------------------------- */
+
+.dashboard-placeholder {
+    margin-top: 28px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 16px;
+
+    padding: 36px;
+
+    min-height: 350px;
+
+    box-shadow:
+        0 4px 18px rgba(16, 24, 40, 0.04);
+}
+
+
+.dashboard-placeholder p {
+    margin: 0;
+
+    color: var(--text-secondary);
 }
