@@ -42,3 +42,17 @@ export async function getTopics() {
 
     return response.json()
 }
+
+export async function getIntents() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/intents`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load intents."
+        )
+    }
+
+    return response.json()
+}

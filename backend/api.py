@@ -292,3 +292,42 @@ def get_top_topics():
     return {
         "topics": topics
     }
+
+@app.get("/api/intents")
+def get_intent_distribution():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    intent,
+                    COUNT(*) AS count
+                FROM content_analysis
+                GROUP BY intent
+                ORDER BY count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    intents = []
+
+    for row in rows:
+        intents.append(
+            {
+                "intent": row["intent"],
+                "count": int(
+                    row["count"] or 0
+                ),
+            }
+        )
+
+    return {
+        "intents": intents
+    }
+
