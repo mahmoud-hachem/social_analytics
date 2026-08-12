@@ -2,6 +2,7 @@ import { useState } from "react"
 import FilterBar from "../components/filters/FilterBar"
 import MetricCards from "../components/cards/MetricCards"
 import SentimentDistributionChart from "../components/charts/SentimentDistributionChart"
+import TopTopicsChart from "../components/charts/TopTopicsChart"
 
 function Overview() {
     const [showFilters, setShowFilters] = useState(false)
@@ -78,6 +79,8 @@ function Overview() {
 
 <section className="dashboard-charts">
     <SentimentDistributionChart />
+
+    <TopTopicsChart />
 </section>
 
         </div>

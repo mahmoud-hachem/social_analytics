@@ -254,3 +254,41 @@ def get_sentiment_distribution():
             },
         ],
     }
+
+@app.get("/api/topics")
+def get_top_topics():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    topic,
+                    COUNT(*) AS count
+                FROM content_analysis
+                GROUP BY topic
+                ORDER BY count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    topics = []
+
+    for row in rows:
+        topics.append(
+            {
+                "topic": row["topic"],
+                "count": int(
+                    row["count"] or 0
+                ),
+            }
+        )
+
+    return {
+        "topics": topics
+    }

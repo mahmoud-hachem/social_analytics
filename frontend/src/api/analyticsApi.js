@@ -28,3 +28,17 @@ export async function getSentimentDistribution() {
 
     return response.json()
 }
+
+export async function getTopics() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/topics`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load topics."
+        )
+    }
+
+    return response.json()
+}
