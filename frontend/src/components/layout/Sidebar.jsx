@@ -23,7 +23,8 @@ function Sidebar({
             icon: LayoutDashboard,
             active: true,
         },
-        {
+      /*
+      {
             label: "Mentions",
             icon: MessageSquareText,
         },
@@ -46,7 +47,8 @@ function Sidebar({
         {
             label: "Reports",
             icon: FileText,
-        },
+        }, 
+        */
     ]
 
 

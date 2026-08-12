@@ -82,7 +82,6 @@ IntentLabel = Literal[
     "question",
     "praise",
     "suggestion",
-    "information_request",
     "general_opinion",
     "confirmation",
     "disagreement",
@@ -114,7 +113,6 @@ TopicLabel = Literal[
     "pricing",
     "sim_card",
     "router_device",
-    "general_question",
     "other",
 ]
 
@@ -599,9 +597,45 @@ roaming
 pricing
 sim_card
 router_device
-general_question
 other
 
+IMPORTANT QUESTION/TOPIC RULE:
+
+A question is an INTENT, not a TOPIC.
+
+Never use a generic question category as the topic.
+
+Even when the customer asks a question, determine the actual
+subject of that question.
+
+Examples:
+
+"How much does it cost?"
+If asking about price:
+topic = pricing
+intent = question
+
+"Where can I buy the SIM?"
+topic = sim_card
+intent = question
+
+"How do I activate this bundle?"
+topic = package_activation
+intent = question
+
+"Does this router work with a power bank?"
+topic = router_device
+intent = question
+
+"Is this package available?"
+topic = packages_offers
+intent = question
+
+If the question is vague, use the ORIGINAL SOCIAL MEDIA POST
+to determine what the user is asking about.
+
+Use topic = other only when the actual subject cannot reasonably
+be determined from the comment, reply, original post, or parent context.
 
 Topic examples:
 
@@ -698,8 +732,6 @@ praise
 
 suggestion
 
-information_request
-
 general_opinion
 
 confirmation
@@ -719,8 +751,19 @@ complaint:
 The user reports dissatisfaction or a problem.
 
 question:
-The user asks a direct question that does not fit a more
-specific information request.
+The user asks for information, instructions, availability,
+pricing, eligibility, locations, product details,
+technical details, compatibility, activation steps,
+or any other answer.
+
+Examples:
+
+"How much does it cost?"
+"Where can I buy it?"
+"How do I activate the bundle?"
+"Is this available in Beirut?"
+"Does this work with my router?"
+"How fast is the connection?"
 
 praise:
 The user expresses satisfaction or appreciation.
@@ -728,10 +771,6 @@ The user expresses satisfaction or appreciation.
 suggestion:
 The user recommends a change or improvement.
 
-information_request:
-The user asks for instructions, availability,
-pricing, eligibility, locations, product details,
-or technical information.
 
 general_opinion:
 The user expresses an opinion that does not clearly fit
