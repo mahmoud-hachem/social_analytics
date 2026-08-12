@@ -66,6 +66,7 @@ PostTopicLabel = Literal[
     "company_announcement",
     "event_campaign",
     "general_information",
+    "prepaid_sim",
     "other",
 ]
 
@@ -457,6 +458,7 @@ how_to_guide
 company_announcement
 event_campaign
 general_information
+prepaid_sim
 other
 
 
@@ -523,6 +525,10 @@ competition, or similar activity.
 general_information:
 The post provides general information that does not fit
 a more specific category.
+
+prepaid_sim:
+The post primarily promotes, announces, or provides information
+about a prepaid mobile line or prepaid SIM product.
 
 other:
 Use only when no other post topic reasonably applies.
