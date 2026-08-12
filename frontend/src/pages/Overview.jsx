@@ -81,7 +81,7 @@ function Overview() {
             <MetricCards />
 
 <section className="dashboard-charts">
-
+    
     <SentimentDistributionChart />
 
     <TopTopicsChart />
@@ -91,9 +91,9 @@ function Overview() {
 
 <section className="dashboard-charts">
 
-    <IntentDistributionChart />
-
     <PlatformDistribution />
+    
+    <IntentDistributionChart />
   
 </section>
 

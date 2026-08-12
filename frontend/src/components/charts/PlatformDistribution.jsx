@@ -8,10 +8,10 @@ import {
 } from "../../api/analyticsApi.js"
 
 import facebookLogo
-    from "../../assets/facebook-logo.svg"
+    from "../../assets/facebook-logo.png"
 
 import instagramLogo
-    from "../../assets/instagram-logo.svg"
+    from "../../assets/instagram-logo.png"
 
 
 const PLATFORM_CONFIG = {

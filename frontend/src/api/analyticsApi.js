@@ -57,3 +57,16 @@ export async function getIntents() {
     return response.json()
 }
 
+export async function getPlatforms() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/platforms`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load platform distribution."
+        )
+    }
+
+    return response.json()
+}
