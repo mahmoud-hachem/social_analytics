@@ -1,6 +1,7 @@
 import { useState } from "react"
 import FilterBar from "../components/filters/FilterBar"
 import MetricCards from "../components/cards/MetricCards"
+import SentimentDistributionChart from "../components/charts/SentimentDistributionChart"
 
 function Overview() {
     const [showFilters, setShowFilters] = useState(false)
@@ -75,10 +76,8 @@ function Overview() {
 
             <MetricCards />
 
-<section className="dashboard-placeholder">
-    <p>
-        Charts will go here.
-    </p>
+<section className="dashboard-charts">
+    <SentimentDistributionChart />
 </section>
 
         </div>

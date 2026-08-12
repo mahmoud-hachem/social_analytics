@@ -154,3 +154,103 @@ def get_summary():
         "complaints": complaints,
         "high_severity": high_severity,
     }
+
+@app.get("/api/sentiment")
+def get_sentiment_distribution():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    SUM(
+                        CASE
+                            WHEN sentiment = 'positive'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS positive,
+
+                    SUM(
+                        CASE
+                            WHEN sentiment = 'neutral'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS neutral,
+
+                    SUM(
+                        CASE
+                            WHEN sentiment = 'negative'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS negative
+
+                FROM content_analysis
+                """
+            )
+
+            row = cursor.fetchone()
+
+    finally:
+        connection.close()
+
+
+    positive = int(
+        row["positive"] or 0
+    )
+
+    neutral = int(
+        row["neutral"] or 0
+    )
+
+    negative = int(
+        row["negative"] or 0
+    )
+
+    total = (
+        positive
+        + neutral
+        + negative
+    )
+
+
+    def percentage(value: int) -> float:
+        if total == 0:
+            return 0.0
+
+        return round(
+            (value / total) * 100,
+            1,
+        )
+
+
+    return {
+        "total": total,
+
+        "sentiments": [
+            {
+                "sentiment": "positive",
+                "count": positive,
+                "percentage": percentage(
+                    positive
+                ),
+            },
+            {
+                "sentiment": "neutral",
+                "count": neutral,
+                "percentage": percentage(
+                    neutral
+                ),
+            },
+            {
+                "sentiment": "negative",
+                "count": negative,
+                "percentage": percentage(
+                    negative
+                ),
+            },
+        ],
+    }

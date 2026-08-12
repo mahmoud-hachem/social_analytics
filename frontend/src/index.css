@@ -822,3 +822,242 @@ select {
 
     border-color: #fecdca;
 }
+
+/* =========================================================
+   DASHBOARD CHARTS
+========================================================= */
+
+.dashboard-charts {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 18px;
+
+    margin-top: 18px;
+}
+
+
+/* =========================================================
+   CHART CARD
+========================================================= */
+
+.chart-card {
+    min-width: 0;
+
+    padding: 22px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(16, 24, 40, 0.045);
+}
+
+
+.chart-card-header {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+
+    margin-bottom: 12px;
+}
+
+
+.chart-card-header h2 {
+    margin: 0;
+
+    font-family: "Outfit", sans-serif;
+
+    font-size: 18px;
+    font-weight: 700;
+
+    color: var(--text-primary);
+}
+
+
+.chart-card-header p {
+    margin:
+        5px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   SENTIMENT CHART
+========================================================= */
+
+.sentiment-chart-content {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 30px;
+
+    min-height: 280px;
+}
+
+
+.sentiment-chart-wrapper {
+    position: relative;
+
+    width: 260px;
+    height: 260px;
+
+    flex-shrink: 0;
+}
+
+
+.sentiment-chart-center {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    pointer-events: none;
+}
+
+
+.sentiment-chart-center strong {
+    font-family: "Outfit", sans-serif;
+
+    font-size: 28px;
+    font-weight: 700;
+
+    color: var(--text-primary);
+}
+
+
+.sentiment-chart-center span {
+    margin-top: 2px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   SENTIMENT LEGEND
+========================================================= */
+
+.sentiment-legend {
+    min-width: 180px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 12px;
+}
+
+
+.sentiment-legend-item {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding:
+        10px 0;
+
+    border-bottom:
+        1px solid #f0f2f4;
+}
+
+
+.sentiment-legend-item:last-child {
+    border-bottom: none;
+}
+
+
+.sentiment-legend-left {
+    display: flex;
+
+    align-items: center;
+
+    gap: 9px;
+}
+
+
+.sentiment-dot {
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    flex-shrink: 0;
+}
+
+
+.sentiment-name {
+    color: var(--text-primary);
+
+    font-size: 13px;
+    font-weight: 500;
+}
+
+
+.sentiment-values {
+    display: flex;
+    flex-direction: column;
+
+    align-items: flex-end;
+}
+
+
+.sentiment-values strong {
+    color: var(--text-primary);
+
+    font-size: 13px;
+}
+
+
+.sentiment-values span {
+    margin-top: 2px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   CHART STATUS
+========================================================= */
+
+.chart-status {
+    min-height: 280px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+}
+
+
+.chart-error {
+    color: #b42318;
+}
