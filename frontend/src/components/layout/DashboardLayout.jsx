@@ -1,10 +1,15 @@
-import { useState } from "react"
+import {
+    useState,
+} from "react"
 
-import Sidebar from "./Sidebar"
+import Sidebar
+    from "./Sidebar"
 
 
 function DashboardLayout({
     children,
+    activePage,
+    onPageChange,
 }) {
     const [
         sidebarCollapsed,
@@ -14,7 +19,8 @@ function DashboardLayout({
 
     function toggleSidebar() {
         setSidebarCollapsed(
-            (currentValue) => !currentValue
+            (currentValue) =>
+                !currentValue
         )
     }
 
@@ -25,7 +31,10 @@ function DashboardLayout({
             <Sidebar
                 collapsed={sidebarCollapsed}
                 onToggle={toggleSidebar}
+                activePage={activePage}
+                onPageChange={onPageChange}
             />
+
 
             <main className="dashboard-main">
                 {children}

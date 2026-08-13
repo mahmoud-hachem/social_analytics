@@ -933,3 +933,335 @@ def get_recent_analysis(
     return {
         "content": content
     }
+
+@app.get("/api/comments")
+def get_comments(
+    page: int = 1,
+    page_size: int = 20,
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    content_type: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    conditions = []
+    params = {}
+
+
+    if date_from:
+        conditions.append(
+            "DATE(c.published_at) >= %(date_from)s"
+        )
+
+        params["date_from"] = date_from
+
+
+    if date_to:
+        conditions.append(
+            "DATE(c.published_at) <= %(date_to)s"
+        )
+
+        params["date_to"] = date_to
+
+
+    if platform:
+        conditions.append(
+            "c.platform = %(platform)s"
+        )
+
+        params["platform"] = platform
+
+
+    if content_type:
+        conditions.append(
+            "c.content_type = %(content_type)s"
+        )
+
+        params["content_type"] = content_type
+
+
+    if post_topic:
+        conditions.append(
+            "a.post_topic = %(post_topic)s"
+        )
+
+        params["post_topic"] = post_topic
+
+
+    if topic:
+        conditions.append(
+            "a.topic = %(topic)s"
+        )
+
+        params["topic"] = topic
+
+
+    if sentiment:
+        conditions.append(
+            "a.sentiment = %(sentiment)s"
+        )
+
+        params["sentiment"] = sentiment
+
+
+    if intent:
+        conditions.append(
+            "a.intent = %(intent)s"
+        )
+
+        params["intent"] = intent
+
+
+    if severity:
+        conditions.append(
+            "a.severity = %(severity)s"
+        )
+
+        params["severity"] = severity
+
+
+    if search:
+        conditions.append(
+            """
+            (
+                c.content_text LIKE %(search)s
+                OR c.source_post_text LIKE %(search)s
+            )
+            """
+        )
+
+        params["search"] = (
+            f"%{search}%"
+        )
+
+
+    if conditions:
+        where_clause = (
+            " WHERE "
+            + " AND ".join(
+                conditions
+            )
+        )
+    else:
+        where_clause = ""
+
+
+    if page < 1:
+        page = 1
+
+
+    if page_size < 1:
+        page_size = 20
+
+
+    if page_size > 100:
+        page_size = 100
+
+
+    offset = (
+        page - 1
+    ) * page_size
+
+
+    connection = get_database_connection()
+
+
+    try:
+        with connection.cursor() as cursor:
+
+            count_sql = f"""
+                SELECT
+                    COUNT(*) AS total
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+            """
+
+
+            cursor.execute(
+                count_sql,
+                params,
+            )
+
+
+            count_row = cursor.fetchone()
+
+
+            total = int(
+                count_row["total"]
+                or 0
+            )
+
+
+            data_sql = f"""
+                SELECT
+                    c.id,
+                    c.external_id,
+                    c.platform,
+                    c.content_type,
+                    c.source_post_id,
+                    c.source_post_text,
+                    c.parent_external_id,
+                    c.content_text,
+                    c.published_at,
+                    c.likes_count,
+
+                    a.language,
+                    a.post_topic,
+                    a.sentiment,
+                    a.topic,
+                    a.intent,
+                    a.severity,
+                    a.confidence
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                ORDER BY
+                    c.published_at DESC,
+                    c.id DESC
+
+                LIMIT %(page_size)s
+                OFFSET %(offset)s
+            """
+
+
+            data_params = {
+                **params,
+                "page_size": page_size,
+                "offset": offset,
+            }
+
+
+            cursor.execute(
+                data_sql,
+                data_params,
+            )
+
+
+            rows = cursor.fetchall()
+
+
+    finally:
+        connection.close()
+
+
+    comments = []
+
+
+    for row in rows:
+        comments.append(
+            {
+                "id":
+                    row["id"],
+
+                "external_id":
+                    row["external_id"],
+
+                "platform":
+                    row["platform"],
+
+                "content_type":
+                    row["content_type"],
+
+                "source_post_id":
+                    row["source_post_id"],
+
+                "source_post_text":
+                    row["source_post_text"],
+
+                "parent_external_id":
+                    row[
+                        "parent_external_id"
+                    ],
+
+                "content_text":
+                    row["content_text"],
+
+                "published_at": (
+                    row[
+                        "published_at"
+                    ].isoformat()
+                    if row[
+                        "published_at"
+                    ]
+                    else None
+                ),
+
+                "likes_count":
+                    int(
+                        row[
+                            "likes_count"
+                        ]
+                        or 0
+                    ),
+
+                "language":
+                    row["language"],
+
+                "post_topic":
+                    row["post_topic"],
+
+                "sentiment":
+                    row["sentiment"],
+
+                "topic":
+                    row["topic"],
+
+                "intent":
+                    row["intent"],
+
+                "severity":
+                    row["severity"],
+
+                "confidence":
+                    float(
+                        row[
+                            "confidence"
+                        ]
+                        or 0
+                    ),
+            }
+        )
+
+
+    total_pages = (
+        (
+            total
+            + page_size
+            - 1
+        )
+        // page_size
+    )
+
+
+    return {
+        "comments": comments,
+
+        "pagination": {
+            "page":
+                page,
+
+            "page_size":
+                page_size,
+
+            "total":
+                total,
+
+            "total_pages":
+                total_pages,
+        },
+    }

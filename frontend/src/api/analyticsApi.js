@@ -226,3 +226,106 @@ export async function getRecentAnalysis(
 
     return response.json()
 }
+export async function getComments({
+    page = 1,
+    pageSize = 20,
+    search = "",
+    platform = "",
+    contentType = "",
+    postTopic = "",
+    topic = "",
+    sentiment = "",
+    intent = "",
+    severity = "",
+} = {}) {
+    const params = new URLSearchParams()
+
+    params.set(
+        "page",
+        page
+    )
+
+    params.set(
+        "page_size",
+        pageSize
+    )
+
+
+    if (search) {
+        params.set(
+            "search",
+            search
+        )
+    }
+
+
+    if (platform) {
+        params.set(
+            "platform",
+            platform
+        )
+    }
+
+
+    if (contentType) {
+        params.set(
+            "content_type",
+            contentType
+        )
+    }
+
+
+    if (postTopic) {
+        params.set(
+            "post_topic",
+            postTopic
+        )
+    }
+
+
+    if (topic) {
+        params.set(
+            "topic",
+            topic
+        )
+    }
+
+
+    if (sentiment) {
+        params.set(
+            "sentiment",
+            sentiment
+        )
+    }
+
+
+    if (intent) {
+        params.set(
+            "intent",
+            intent
+        )
+    }
+
+
+    if (severity) {
+        params.set(
+            "severity",
+            severity
+        )
+    }
+
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/comments?${params.toString()}`
+    )
+
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load comments."
+        )
+    }
+
+
+    return response.json()
+}
