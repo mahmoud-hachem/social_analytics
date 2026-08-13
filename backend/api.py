@@ -385,3 +385,238 @@ def get_platform_distribution():
         "total": total,
         "platforms": platforms,
     }
+
+@app.get("/api/sentiment-over-time")
+def get_sentiment_over_time():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    DATE(c.published_at) AS date,
+
+                    COUNT(c.id) AS total,
+
+                    SUM(
+                        CASE
+                            WHEN a.sentiment = 'positive'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS positive,
+
+                    SUM(
+                        CASE
+                            WHEN a.sentiment = 'neutral'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS neutral,
+
+                    SUM(
+                        CASE
+                            WHEN a.sentiment = 'negative'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS negative
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY DATE(c.published_at)
+
+                ORDER BY DATE(c.published_at)
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    data = []
+
+    for row in rows:
+        data.append(
+            {
+                "date": (
+                    row["date"].isoformat()
+                    if row["date"]
+                    else None
+                ),
+                "total": int(
+                    row["total"] or 0
+                ),
+                "positive": int(
+                    row["positive"] or 0
+                ),
+                "neutral": int(
+                    row["neutral"] or 0
+                ),
+                "negative": int(
+                    row["negative"] or 0
+                ),
+            }
+        )
+
+    return {
+        "data": data
+    }
+
+
+@app.get("/api/high-severity")
+def get_high_severity():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.id,
+                    c.platform,
+                    c.content_type,
+                    c.content_text,
+                    c.published_at,
+
+                    a.topic,
+                    a.intent,
+                    a.sentiment,
+                    a.severity,
+                    a.confidence
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                WHERE a.severity = 'high'
+
+                ORDER BY c.published_at DESC
+
+                LIMIT 10
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    issues = []
+
+    for row in rows:
+        issues.append(
+            {
+                "id": row["id"],
+                "platform": row["platform"],
+                "content_type": (
+                    row["content_type"]
+                ),
+                "content_text": (
+                    row["content_text"]
+                ),
+                "published_at": (
+                    row["published_at"].isoformat()
+                    if row["published_at"]
+                    else None
+                ),
+                "topic": row["topic"],
+                "intent": row["intent"],
+                "sentiment": row["sentiment"],
+                "severity": row["severity"],
+                "confidence": float(
+                    row["confidence"] or 0
+                ),
+            }
+        )
+
+    return {
+        "issues": issues
+    }
+
+
+@app.get("/api/recent-analysis")
+def get_recent_analysis():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.id,
+                    c.platform,
+                    c.content_type,
+                    c.content_text,
+                    c.source_post_text,
+                    c.published_at,
+
+                    a.post_topic,
+                    a.topic,
+                    a.intent,
+                    a.sentiment,
+                    a.severity,
+                    a.confidence
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                ORDER BY c.published_at DESC
+
+                LIMIT 12
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    content = []
+
+    for row in rows:
+        content.append(
+            {
+                "id": row["id"],
+                "platform": row["platform"],
+                "content_type": (
+                    row["content_type"]
+                ),
+                "content_text": (
+                    row["content_text"]
+                ),
+                "source_post_text": (
+                    row["source_post_text"]
+                ),
+                "published_at": (
+                    row["published_at"].isoformat()
+                    if row["published_at"]
+                    else None
+                ),
+                "post_topic": (
+                    row["post_topic"]
+                ),
+                "topic": row["topic"],
+                "intent": row["intent"],
+                "sentiment": row["sentiment"],
+                "severity": row["severity"],
+                "confidence": float(
+                    row["confidence"] or 0
+                ),
+            }
+        )
+
+    return {
+        "content": content
+    }

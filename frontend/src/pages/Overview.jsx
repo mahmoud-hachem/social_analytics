@@ -5,6 +5,9 @@ import SentimentDistributionChart from "../components/charts/SentimentDistributi
 import TopTopicsChart from "../components/charts/TopTopicsChart"
 import IntentDistributionChart from "../components/charts/IntentDistributionChart"
 import PlatformDistribution from "../components/charts/PlatformDistribution"
+import CommentsSentimentChart from "../components/charts/CommentsSentimentOverTime";
+import HighSeverityTable from "../components/tables/HighSeverityTable";
+import CommentsAnalysisTable from "../components/tables/CommentsAnalysisTable";
 
 
 function Overview() {
@@ -96,6 +99,28 @@ function Overview() {
     <IntentDistributionChart />
   
 </section>
+
+
+<section className="overview-full-row">
+
+                <CommentsSentimentOverTime />
+
+            </section>
+
+
+            <section className="overview-full-row">
+
+                <HighSeverityTable />
+
+            </section>
+
+
+            <section className="overview-full-row">
+
+                <CommentsAnalysisTable />
+
+            </section>
+
 
         </div>
     )

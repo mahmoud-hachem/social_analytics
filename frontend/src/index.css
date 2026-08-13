@@ -1241,3 +1241,332 @@ select {
 
     font-size: 15px;
 }
+
+/* =========================================================
+   FULL WIDTH OVERVIEW SECTIONS
+========================================================= */
+
+.overview-full-row {
+    width: 100%;
+
+    margin-top: 18px;
+}
+
+
+.overview-wide-card {
+    width: 100%;
+
+    padding: 22px;
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 16px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(16, 24, 40, 0.045);
+}
+
+
+/* =========================================================
+   WIDE CARD HEADER
+========================================================= */
+
+.wide-card-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 18px;
+}
+
+
+.wide-card-header h2 {
+    margin: 0;
+
+    font-family: "Outfit", sans-serif;
+
+    font-size: 18px;
+    font-weight: 700;
+
+    color: var(--text-primary);
+}
+
+
+.wide-card-header p {
+    margin:
+        5px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   SENTIMENT OVER TIME
+========================================================= */
+
+.sentiment-time-chart {
+    width: 100%;
+    height: 330px;
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.table-scroll {
+    width: 100%;
+
+    overflow-x: auto;
+}
+
+
+.analytics-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    font-size: 13px;
+}
+
+
+.analytics-table th {
+    padding:
+        11px 12px;
+
+    text-align: left;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    background: #f8fafb;
+
+    border-bottom:
+        1px solid var(--border);
+
+    white-space: nowrap;
+}
+
+
+.analytics-table td {
+    padding:
+        12px;
+
+    color: var(--text-primary);
+
+    border-bottom:
+        1px solid #eef1f3;
+
+    vertical-align: middle;
+}
+
+
+.analytics-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+.analytics-table tbody tr:hover {
+    background: #fafcfd;
+}
+
+
+.content-cell {
+    max-width: 420px;
+
+    line-height: 1.45;
+}
+
+
+/* =========================================================
+   PLATFORM INSIDE TABLE
+========================================================= */
+
+.table-platform {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+.table-platform-logo {
+    width: 20px;
+    height: 20px;
+
+    object-fit: contain;
+}
+
+
+/* =========================================================
+   HIGH-SEVERITY TABLE
+========================================================= */
+
+.severity-header {
+    color: #ef4444;
+}
+
+
+.severity-title {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+.severity-title h2 {
+    color: var(--text-primary);
+}
+
+
+.table-count {
+    color: var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   BADGES
+========================================================= */
+
+.severity-badge,
+.sentiment-badge {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding:
+        5px 9px;
+
+    border-radius: 7px;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+
+.severity-high {
+    color: #d92d20;
+
+    background: #fee4e2;
+}
+
+
+.severity-medium {
+    color: #b54708;
+
+    background: #fef0c7;
+}
+
+
+.severity-low {
+    color: #027a48;
+
+    background: #d1fadf;
+}
+
+
+.sentiment-positive {
+    color: #027a48;
+
+    background: #d1fadf;
+}
+
+
+.sentiment-neutral {
+    color: #475467;
+
+    background: #f2f4f7;
+}
+
+
+.sentiment-negative {
+    color: #d92d20;
+
+    background: #fee4e2;
+}
+
+
+/* =========================================================
+   CONFIDENCE
+========================================================= */
+
+.confidence-cell {
+    min-width: 125px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 9px;
+}
+
+
+.confidence-cell span {
+    width: 34px;
+
+    color: var(--text-secondary);
+
+    font-size: 11px;
+}
+
+
+.confidence-bar {
+    flex: 1;
+
+    height: 6px;
+
+    overflow: hidden;
+
+    background: #edf1f3;
+
+    border-radius: 20px;
+}
+
+
+.confidence-fill {
+    height: 100%;
+
+    background: var(--touch-primary);
+
+    border-radius: 20px;
+}
+
+
+/* =========================================================
+   TABLE STATUS
+========================================================= */
+
+.table-status {
+    min-height: 120px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+}
+
+
+.table-error {
+    color: #b42318;
+}

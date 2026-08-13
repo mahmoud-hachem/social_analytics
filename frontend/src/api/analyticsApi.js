@@ -70,3 +70,47 @@ export async function getPlatforms() {
 
     return response.json()
 }
+
+export async function getSentimentOverTime() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/sentiment-over-time`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load sentiment over time."
+        )
+    }
+
+    return response.json()
+}
+
+
+export async function getHighSeverity() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/high-severity`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load high-severity issues."
+        )
+    }
+
+    return response.json()
+}
+
+
+export async function getRecentAnalysis() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/recent-analysis`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load recent analysis."
+        )
+    }
+
+    return response.json()
+}
