@@ -47,21 +47,35 @@ function renderSentimentSector(props) {
 }
 
 
-function SentimentDistributionChart() {
-    const [data, setData] = useState(null)
+function SentimentDistributionChart({
+    filters,
+}) {
+    const [
+        data,
+        setData,
+    ] = useState(null)
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadSentiment() {
             try {
+                setLoading(true)
+                setError(null)
+
                 const result =
-                    await getSentimentDistribution()
+                    await getSentimentDistribution(
+                        filters
+                    )
 
                 const formattedSentiments =
                     result.sentiments.map(
@@ -85,6 +99,7 @@ function SentimentDistributionChart() {
 
                 setData({
                     total: result.total,
+
                     sentiments:
                         formattedSentiments,
                 })
@@ -98,7 +113,8 @@ function SentimentDistributionChart() {
         }
 
         loadSentiment()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -135,7 +151,7 @@ function SentimentDistributionChart() {
 
                     <p>
                         AI sentiment analysis across
-                        social media platform content.
+                        the selected content.
                     </p>
                 </div>
 
@@ -152,7 +168,9 @@ function SentimentDistributionChart() {
                     >
 
                         <Pie
-                            data={data.sentiments}
+                            data={
+                                data.sentiments
+                            }
                             dataKey="count"
                             nameKey="label"
 
@@ -168,6 +186,7 @@ function SentimentDistributionChart() {
                                 renderSentimentSector
                             }
                         />
+
 
                         <Tooltip
                             formatter={(
@@ -210,7 +229,9 @@ function SentimentDistributionChart() {
                         (item) => (
                             <div
                                 className="sentiment-legend-item"
-                                key={item.sentiment}
+                                key={
+                                    item.sentiment
+                                }
                             >
 
                                 <div className="sentiment-legend-left">

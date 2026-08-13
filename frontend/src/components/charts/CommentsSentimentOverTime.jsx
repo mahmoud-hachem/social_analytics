@@ -20,7 +20,9 @@ import {
 
 
 function formatDate(date) {
-    return new Date(date).toLocaleDateString(
+    return new Date(
+        `${date}T00:00:00`
+    ).toLocaleDateString(
         "en-US",
         {
             month: "short",
@@ -30,26 +32,41 @@ function formatDate(date) {
 }
 
 
-function CommentsSentimentOverTime() {
-    const [data, setData] = useState([])
+function CommentsSentimentOverTime({
+    filters,
+}) {
+    const [
+        data,
+        setData,
+    ] = useState([])
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadData() {
             try {
+                setLoading(true)
+                setError(null)
+
                 const result =
-                    await getSentimentOverTime()
+                    await getSentimentOverTime(
+                        filters
+                    )
 
                 const formatted =
                     result.data.map(
                         (item) => ({
                             ...item,
+
                             label:
                                 formatDate(
                                     item.date
@@ -68,7 +85,8 @@ function CommentsSentimentOverTime() {
         }
 
         loadData()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -120,6 +138,7 @@ function CommentsSentimentOverTime() {
 
                     <LineChart
                         data={data}
+
                         margin={{
                             top: 15,
                             right: 25,
@@ -155,6 +174,7 @@ function CommentsSentimentOverTime() {
                             name="Total Content"
                             stroke="#08a6b5"
                             strokeWidth={3}
+
                             dot={{
                                 r: 4,
                             }}

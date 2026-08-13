@@ -1,8 +1,10 @@
 import FilterSelect from "./FilterSelect"
 
 
-function FilterBar() {
-
+function FilterBar({
+    filters,
+    onFilterChange,
+}) {
     const platformOptions = [
         {
             value: "facebook",
@@ -49,8 +51,52 @@ function FilterBar() {
             label: "New Device",
         },
         {
+            value: "prepaid_sim",
+            label: "Prepaid SIM",
+        },
+        {
+            value: "app_digital_feature",
+            label: "App / Digital Feature",
+        },
+        {
+            value: "roaming_service",
+            label: "Roaming Service",
+        },
+        {
+            value: "esim_service",
+            label: "eSIM Service",
+        },
+        {
+            value: "customer_service_update",
+            label: "Customer Service Update",
+        },
+        {
             value: "pricing_promotion",
             label: "Pricing Promotion",
+        },
+        {
+            value: "availability_announcement",
+            label: "Availability Announcement",
+        },
+        {
+            value: "how_to_guide",
+            label: "How-To Guide",
+        },
+        {
+            value: "company_announcement",
+            label: "Company Announcement",
+        },
+        {
+            value: "event_campaign",
+            label: "Event / Campaign",
+        },
+        {
+            value: "general_information",
+            label: "General Information",
+        },
+        {
+            value: "other",
+            label: "Other",
         },
     ]
 
@@ -85,16 +131,16 @@ function FilterBar() {
             label: "Package Renewal",
         },
         {
-            value: "packages_offers",
-            label: "Packages & Offers",
-        },
-        {
             value: "customer_service",
             label: "Customer Service",
         },
         {
             value: "mobile_application",
             label: "Mobile Application",
+        },
+        {
+            value: "packages_offers",
+            label: "Packages & Offers",
         },
         {
             value: "roaming",
@@ -111,6 +157,10 @@ function FilterBar() {
         {
             value: "router_device",
             label: "Router / Device",
+        },
+        {
+            value: "other",
+            label: "Other",
         },
     ]
 
@@ -149,8 +199,8 @@ function FilterBar() {
             label: "Suggestion",
         },
         {
-            value: "information_request",
-            label: "Information Request",
+            value: "general_opinion",
+            label: "General Opinion",
         },
         {
             value: "confirmation",
@@ -203,6 +253,13 @@ function FilterBar() {
                 <input
                     type="date"
                     className="filter-select"
+                    value={filters.dateFrom}
+                    onChange={(event) =>
+                        onFilterChange(
+                            "dateFrom",
+                            event.target.value
+                        )
+                    }
                 />
 
             </div>
@@ -217,6 +274,13 @@ function FilterBar() {
                 <input
                     type="date"
                     className="filter-select"
+                    value={filters.dateTo}
+                    onChange={(event) =>
+                        onFilterChange(
+                            "dateTo",
+                            event.target.value
+                        )
+                    }
                 />
 
             </div>
@@ -225,36 +289,78 @@ function FilterBar() {
             <FilterSelect
                 label="Platform"
                 options={platformOptions}
+                value={filters.platform}
+                onChange={(value) =>
+                    onFilterChange(
+                        "platform",
+                        value
+                    )
+                }
             />
 
 
             <FilterSelect
                 label="Post Topic"
                 options={postTopicOptions}
+                value={filters.postTopic}
+                onChange={(value) =>
+                    onFilterChange(
+                        "postTopic",
+                        value
+                    )
+                }
             />
 
 
             <FilterSelect
                 label="Topic"
                 options={topicOptions}
+                value={filters.topic}
+                onChange={(value) =>
+                    onFilterChange(
+                        "topic",
+                        value
+                    )
+                }
             />
 
 
             <FilterSelect
                 label="Sentiment"
                 options={sentimentOptions}
+                value={filters.sentiment}
+                onChange={(value) =>
+                    onFilterChange(
+                        "sentiment",
+                        value
+                    )
+                }
             />
 
 
             <FilterSelect
                 label="Intent"
                 options={intentOptions}
+                value={filters.intent}
+                onChange={(value) =>
+                    onFilterChange(
+                        "intent",
+                        value
+                    )
+                }
             />
 
 
             <FilterSelect
                 label="Severity"
                 options={severityOptions}
+                value={filters.severity}
+                onChange={(value) =>
+                    onFilterChange(
+                        "severity",
+                        value
+                    )
+                }
             />
 
         </section>

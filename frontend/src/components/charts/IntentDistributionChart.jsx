@@ -20,37 +20,57 @@ import {
 function formatIntent(intent) {
     return intent
         .replaceAll("_", " ")
-        .replace(/\b\w/g, (letter) =>
-            letter.toUpperCase()
+        .replace(
+            /\b\w/g,
+            (letter) =>
+                letter.toUpperCase()
         )
 }
 
 
-function IntentDistributionChart() {
-    const [intents, setIntents] = useState([])
+function IntentDistributionChart({
+    filters,
+}) {
+    const [
+        intents,
+        setIntents,
+    ] = useState([])
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadIntents() {
             try {
-                const data = await getIntents()
+                setLoading(true)
+                setError(null)
+
+                const data =
+                    await getIntents(
+                        filters
+                    )
 
                 const formatted =
                     data.intents
                         .slice(0, 6)
-                        .map((item) => ({
-                            ...item,
-                            label:
-                                formatIntent(
-                                    item.intent
-                                ),
-                        }))
+                        .map(
+                            (item) => ({
+                                ...item,
+
+                                label:
+                                    formatIntent(
+                                        item.intent
+                                    ),
+                            })
+                        )
 
                 setIntents(formatted)
 
@@ -63,7 +83,8 @@ function IntentDistributionChart() {
         }
 
         loadIntents()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -116,6 +137,7 @@ function IntentDistributionChart() {
                     <BarChart
                         data={intents}
                         layout="vertical"
+
                         margin={{
                             top: 8,
                             right: 20,
@@ -144,12 +166,14 @@ function IntentDistributionChart() {
                         <Bar
                             dataKey="count"
                             fill="#08a6b5"
+
                             radius={[
                                 0,
                                 8,
                                 8,
                                 0,
                             ]}
+
                             barSize={20}
                         />
 

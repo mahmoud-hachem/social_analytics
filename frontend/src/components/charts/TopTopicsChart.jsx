@@ -20,37 +20,57 @@ import {
 function formatTopic(topic) {
     return topic
         .replaceAll("_", " ")
-        .replace(/\b\w/g, (letter) =>
-            letter.toUpperCase()
+        .replace(
+            /\b\w/g,
+            (letter) =>
+                letter.toUpperCase()
         )
 }
 
 
-function TopTopicsChart() {
-    const [topics, setTopics] = useState([])
+function TopTopicsChart({
+    filters,
+}) {
+    const [
+        topics,
+        setTopics,
+    ] = useState([])
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadTopics() {
             try {
-                const data = await getTopics()
+                setLoading(true)
+                setError(null)
+
+                const data =
+                    await getTopics(
+                        filters
+                    )
 
                 const formatted =
                     data.topics
                         .slice(0, 6)
-                        .map((item) => ({
-                            ...item,
-                            label:
-                                formatTopic(
-                                    item.topic
-                                ),
-                        }))
+                        .map(
+                            (item) => ({
+                                ...item,
+
+                                label:
+                                    formatTopic(
+                                        item.topic
+                                    ),
+                            })
+                        )
 
                 setTopics(formatted)
 
@@ -63,7 +83,8 @@ function TopTopicsChart() {
         }
 
         loadTopics()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -116,6 +137,7 @@ function TopTopicsChart() {
                     <BarChart
                         data={topics}
                         layout="vertical"
+
                         margin={{
                             top: 8,
                             right: 20,
@@ -144,12 +166,14 @@ function TopTopicsChart() {
                         <Bar
                             dataKey="count"
                             fill="#08a6b5"
+
                             radius={[
                                 0,
                                 8,
                                 8,
                                 0,
                             ]}
+
                             barSize={20}
                         />
 

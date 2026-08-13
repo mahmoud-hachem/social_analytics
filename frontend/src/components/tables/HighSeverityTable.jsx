@@ -31,30 +31,47 @@ function formatLabel(value) {
 
     return value
         .replaceAll("_", " ")
-        .replace(/\b\w/g, (letter) =>
-            letter.toUpperCase()
+        .replace(
+            /\b\w/g,
+            (letter) =>
+                letter.toUpperCase()
         )
 }
 
 
-function HighSeverityTable() {
-    const [issues, setIssues] =
-        useState([])
+function HighSeverityTable({
+    filters,
+}) {
+    const [
+        issues,
+        setIssues,
+    ] = useState([])
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadIssues() {
             try {
-                const result =
-                    await getHighSeverity()
+                setLoading(true)
+                setError(null)
 
-                setIssues(result.issues)
+                const result =
+                    await getHighSeverity(
+                        filters
+                    )
+
+                setIssues(
+                    result.issues
+                )
 
             } catch (err) {
                 setError(err.message)
@@ -65,7 +82,8 @@ function HighSeverityTable() {
         }
 
         loadIssues()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -120,6 +138,7 @@ function HighSeverityTable() {
 
                     <thead>
                         <tr>
+
                             <th>
                                 Content
                             </th>
@@ -139,6 +158,7 @@ function HighSeverityTable() {
                             <th>
                                 Severity
                             </th>
+
                         </tr>
                     </thead>
 
@@ -208,9 +228,11 @@ function HighSeverityTable() {
 
 
                                     <td>
+
                                         <span className="severity-badge severity-high">
                                             High
                                         </span>
+
                                     </td>
 
                                 </tr>

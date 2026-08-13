@@ -27,30 +27,47 @@ function formatLabel(value) {
 
     return value
         .replaceAll("_", " ")
-        .replace(/\b\w/g, (letter) =>
-            letter.toUpperCase()
+        .replace(
+            /\b\w/g,
+            (letter) =>
+                letter.toUpperCase()
         )
 }
 
 
-function CommentsAnalysisTable() {
-    const [content, setContent] =
-        useState([])
+function CommentsAnalysisTable({
+    filters,
+}) {
+    const [
+        content,
+        setContent,
+    ] = useState([])
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadContent() {
             try {
-                const result =
-                    await getRecentAnalysis()
+                setLoading(true)
+                setError(null)
 
-                setContent(result.content)
+                const result =
+                    await getRecentAnalysis(
+                        filters
+                    )
+
+                setContent(
+                    result.content
+                )
 
             } catch (err) {
                 setError(err.message)
@@ -61,15 +78,18 @@ function CommentsAnalysisTable() {
         }
 
         loadContent()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
         return (
             <div className="overview-wide-card">
+
                 <div className="table-status">
                     Loading AI analysis...
                 </div>
+
             </div>
         )
     }
@@ -78,9 +98,11 @@ function CommentsAnalysisTable() {
     if (error) {
         return (
             <div className="overview-wide-card">
+
                 <div className="table-status table-error">
                     {error}
                 </div>
+
             </div>
         )
     }
@@ -92,13 +114,16 @@ function CommentsAnalysisTable() {
             <div className="wide-card-header">
 
                 <div>
+
                     <h2>
                         Comments / AI Analysis
                     </h2>
 
                     <p>
-                        Latest analyzed Facebook and Instagram interactions.
+                        Latest analyzed Facebook
+                        and Instagram interactions.
                     </p>
+
                 </div>
 
             </div>

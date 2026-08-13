@@ -1,6 +1,8 @@
 function FilterSelect({
     label,
     options,
+    value,
+    onChange,
 }) {
     return (
         <div className="filter-group">
@@ -9,7 +11,13 @@ function FilterSelect({
                 {label}
             </label>
 
-            <select className="filter-select">
+            <select
+                className="filter-select"
+                value={value}
+                onChange={(event) =>
+                    onChange(event.target.value)
+                }
+            >
 
                 <option value="">
                     All

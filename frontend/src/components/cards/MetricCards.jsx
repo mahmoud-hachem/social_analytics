@@ -17,29 +17,49 @@ import {
 } from "../../api/analyticsApi"
 
 
-function MetricCards() {
-    const [summary, setSummary] = useState(null)
+function MetricCards({
+    filters,
+}) {
+    const [
+        summary,
+        setSummary,
+    ] = useState(null)
 
-    const [loading, setLoading] = useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] = useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadSummary() {
             try {
-                const data = await getSummary()
+                setLoading(true)
+                setError(null)
+
+                const data =
+                    await getSummary(
+                        filters
+                    )
 
                 setSummary(data)
+
             } catch (err) {
                 setError(err.message)
+
             } finally {
                 setLoading(false)
             }
         }
 
         loadSummary()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
@@ -65,15 +85,25 @@ function MetricCards() {
 
             <MetricCard
                 title="Total Content"
-                value={summary.total_content}
-                subtitle="All Platforms"
+                value={
+                    summary.total_content
+                }
+                subtitle={
+                    filters.platform
+                        ? filters.platform === "facebook"
+                            ? "Facebook"
+                            : "Instagram"
+                        : "All Platforms"
+                }
                 icon={MessagesSquare}
             />
 
 
             <MetricCard
                 title="Negative"
-                value={`${summary.negative_percentage}%`}
+                value={
+                    `${summary.negative_percentage}%`
+                }
                 subtitle="Negative sentiment"
                 icon={Frown}
             />
@@ -81,7 +111,9 @@ function MetricCards() {
 
             <MetricCard
                 title="Complaints"
-                value={summary.complaints}
+                value={
+                    summary.complaints
+                }
                 subtitle="Detected complaints"
                 icon={MessageCircleWarning}
             />
@@ -89,7 +121,9 @@ function MetricCards() {
 
             <MetricCard
                 title="High Severity"
-                value={summary.high_severity}
+                value={
+                    summary.high_severity
+                }
                 subtitle="Needs attention"
                 icon={ShieldAlert}
             />

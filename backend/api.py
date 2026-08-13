@@ -56,6 +56,76 @@ def get_database_connection():
         cursorclass=pymysql.cursors.DictCursor,
     )
 
+def build_filter_clause(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    conditions = []
+    params = {}
+
+    if date_from:
+        conditions.append(
+            "DATE(c.published_at) >= %(date_from)s"
+        )
+        params["date_from"] = date_from
+
+    if date_to:
+        conditions.append(
+            "DATE(c.published_at) <= %(date_to)s"
+        )
+        params["date_to"] = date_to
+
+    if platform:
+        conditions.append(
+            "c.platform = %(platform)s"
+        )
+        params["platform"] = platform
+
+    if post_topic:
+        conditions.append(
+            "a.post_topic = %(post_topic)s"
+        )
+        params["post_topic"] = post_topic
+
+    if topic:
+        conditions.append(
+            "a.topic = %(topic)s"
+        )
+        params["topic"] = topic
+
+    if sentiment:
+        conditions.append(
+            "a.sentiment = %(sentiment)s"
+        )
+        params["sentiment"] = sentiment
+
+    if intent:
+        conditions.append(
+            "a.intent = %(intent)s"
+        )
+        params["intent"] = intent
+
+    if severity:
+        conditions.append(
+            "a.severity = %(severity)s"
+        )
+        params["severity"] = severity
+
+    if conditions:
+        where_clause = (
+            " WHERE "
+            + " AND ".join(conditions)
+        )
+    else:
+        where_clause = ""
+
+    return where_clause, params
 
 @app.get("/")
 def root():
@@ -65,17 +135,34 @@ def root():
 
 
 @app.get("/api/summary")
-def get_summary():
+def get_summary(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
                     COUNT(c.id) AS total_content,
-
-                    COUNT(a.content_id) AS analyzed_content,
 
                     SUM(
                         CASE
@@ -103,9 +190,15 @@ def get_summary():
 
                 FROM content AS c
 
-                LEFT JOIN content_analysis AS a
+                JOIN content_analysis AS a
                     ON a.content_id = c.id
-                """
+
+                {where_clause}
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             row = cursor.fetchone()
@@ -113,13 +206,8 @@ def get_summary():
     finally:
         connection.close()
 
-
     total_content = int(
         row["total_content"] or 0
-    )
-
-    analyzed_content = int(
-        row["analyzed_content"] or 0
     )
 
     negative_count = int(
@@ -134,19 +222,17 @@ def get_summary():
         row["high_severity"] or 0
     )
 
-
-    if analyzed_content > 0:
+    if total_content > 0:
         negative_percentage = round(
             (
                 negative_count
-                / analyzed_content
+                / total_content
             )
             * 100,
             1,
         )
     else:
         negative_percentage = 0.0
-
 
     return {
         "total_content": total_content,
@@ -156,17 +242,36 @@ def get_summary():
     }
 
 @app.get("/api/sentiment")
-def get_sentiment_distribution():
+def get_sentiment_distribution(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
                     SUM(
                         CASE
-                            WHEN sentiment = 'positive'
+                            WHEN a.sentiment = 'positive'
                             THEN 1
                             ELSE 0
                         END
@@ -174,7 +279,7 @@ def get_sentiment_distribution():
 
                     SUM(
                         CASE
-                            WHEN sentiment = 'neutral'
+                            WHEN a.sentiment = 'neutral'
                             THEN 1
                             ELSE 0
                         END
@@ -182,21 +287,29 @@ def get_sentiment_distribution():
 
                     SUM(
                         CASE
-                            WHEN sentiment = 'negative'
+                            WHEN a.sentiment = 'negative'
                             THEN 1
                             ELSE 0
                         END
                     ) AS negative
 
-                FROM content_analysis
-                """
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             row = cursor.fetchone()
 
     finally:
         connection.close()
-
 
     positive = int(
         row["positive"] or 0
@@ -216,8 +329,7 @@ def get_sentiment_distribution():
         + negative
     )
 
-
-    def percentage(value: int) -> float:
+    def percentage(value):
         if total == 0:
             return 0.0
 
@@ -225,7 +337,6 @@ def get_sentiment_distribution():
             (value / total) * 100,
             1,
         )
-
 
     return {
         "total": total,
@@ -256,20 +367,51 @@ def get_sentiment_distribution():
     }
 
 @app.get("/api/topics")
-def get_top_topics():
+def get_top_topics(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
-                    topic,
+                    a.topic,
                     COUNT(*) AS count
-                FROM content_analysis
-                GROUP BY topic
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                GROUP BY a.topic
+
                 ORDER BY count DESC
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -277,37 +419,64 @@ def get_top_topics():
     finally:
         connection.close()
 
-    topics = []
-
-    for row in rows:
-        topics.append(
+    return {
+        "topics": [
             {
                 "topic": row["topic"],
                 "count": int(
                     row["count"] or 0
                 ),
             }
-        )
-
-    return {
-        "topics": topics
+            for row in rows
+        ]
     }
 
 @app.get("/api/intents")
-def get_intent_distribution():
+def get_intent_distribution(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
-                    intent,
+                    a.intent,
                     COUNT(*) AS count
-                FROM content_analysis
-                GROUP BY intent
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                GROUP BY a.intent
+
                 ORDER BY count DESC
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -315,37 +484,64 @@ def get_intent_distribution():
     finally:
         connection.close()
 
-    intents = []
-
-    for row in rows:
-        intents.append(
+    return {
+        "intents": [
             {
                 "intent": row["intent"],
                 "count": int(
                     row["count"] or 0
                 ),
             }
-        )
-
-    return {
-        "intents": intents
+            for row in rows
+        ]
     }
 
 @app.get("/api/platforms")
-def get_platform_distribution():
+def get_platform_distribution(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
-                    platform,
+                    c.platform,
                     COUNT(*) AS count
-                FROM content
-                GROUP BY platform
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                GROUP BY c.platform
+
                 ORDER BY count DESC
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -365,13 +561,14 @@ def get_platform_distribution():
             row["count"] or 0
         )
 
-        if total > 0:
-            percentage = round(
+        percentage = (
+            round(
                 (count / total) * 100,
                 1,
             )
-        else:
-            percentage = 0.0
+            if total > 0
+            else 0.0
+        )
 
         platforms.append(
             {
@@ -387,13 +584,32 @@ def get_platform_distribution():
     }
 
 @app.get("/api/sentiment-over-time")
-def get_sentiment_over_time():
+def get_sentiment_over_time(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
                     DATE(c.published_at) AS date,
 
@@ -428,10 +644,16 @@ def get_sentiment_over_time():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
+                {where_clause}
+
                 GROUP BY DATE(c.published_at)
 
                 ORDER BY DATE(c.published_at)
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -450,34 +672,68 @@ def get_sentiment_over_time():
                     if row["date"]
                     else None
                 ),
+
                 "total": int(
                     row["total"] or 0
                 ),
+
                 "positive": int(
                     row["positive"] or 0
                 ),
+
                 "neutral": int(
                     row["neutral"] or 0
                 ),
+
                 "negative": int(
                     row["negative"] or 0
                 ),
             }
         )
 
+
     return {
         "data": data
     }
 
-
 @app.get("/api/high-severity")
-def get_high_severity():
+def get_high_severity(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
+
+    if where_clause:
+        where_clause += (
+            " AND a.severity = 'high'"
+        )
+    else:
+        where_clause = (
+            " WHERE a.severity = 'high'"
+        )
+
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
                     c.id,
                     c.platform,
@@ -496,12 +752,16 @@ def get_high_severity():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                WHERE a.severity = 'high'
+                {where_clause}
 
                 ORDER BY c.published_at DESC
 
                 LIMIT 10
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -516,27 +776,40 @@ def get_high_severity():
         issues.append(
             {
                 "id": row["id"],
-                "platform": row["platform"],
-                "content_type": (
-                    row["content_type"]
-                ),
-                "content_text": (
-                    row["content_text"]
-                ),
+
+                "platform":
+                    row["platform"],
+
+                "content_type":
+                    row["content_type"],
+
+                "content_text":
+                    row["content_text"],
+
                 "published_at": (
                     row["published_at"].isoformat()
                     if row["published_at"]
                     else None
                 ),
-                "topic": row["topic"],
-                "intent": row["intent"],
-                "sentiment": row["sentiment"],
-                "severity": row["severity"],
+
+                "topic":
+                    row["topic"],
+
+                "intent":
+                    row["intent"],
+
+                "sentiment":
+                    row["sentiment"],
+
+                "severity":
+                    row["severity"],
+
                 "confidence": float(
                     row["confidence"] or 0
                 ),
             }
         )
+
 
     return {
         "issues": issues
@@ -544,13 +817,33 @@ def get_high_severity():
 
 
 @app.get("/api/recent-analysis")
-def get_recent_analysis():
+def get_recent_analysis(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+    post_topic: str | None = None,
+    topic: str | None = None,
+    sentiment: str | None = None,
+    intent: str | None = None,
+    severity: str | None = None,
+):
+    where_clause, params = build_filter_clause(
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        post_topic=post_topic,
+        topic=topic,
+        sentiment=sentiment,
+        intent=intent,
+        severity=severity,
+    )
+
+
     connection = get_database_connection()
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            sql = f"""
                 SELECT
                     c.id,
                     c.platform,
@@ -571,10 +864,16 @@ def get_recent_analysis():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
+                {where_clause}
+
                 ORDER BY c.published_at DESC
 
                 LIMIT 12
-                """
+            """
+
+            cursor.execute(
+                sql,
+                params,
             )
 
             rows = cursor.fetchall()
@@ -588,34 +887,48 @@ def get_recent_analysis():
     for row in rows:
         content.append(
             {
-                "id": row["id"],
-                "platform": row["platform"],
-                "content_type": (
-                    row["content_type"]
-                ),
-                "content_text": (
-                    row["content_text"]
-                ),
-                "source_post_text": (
-                    row["source_post_text"]
-                ),
+                "id":
+                    row["id"],
+
+                "platform":
+                    row["platform"],
+
+                "content_type":
+                    row["content_type"],
+
+                "content_text":
+                    row["content_text"],
+
+                "source_post_text":
+                    row["source_post_text"],
+
                 "published_at": (
                     row["published_at"].isoformat()
                     if row["published_at"]
                     else None
                 ),
-                "post_topic": (
-                    row["post_topic"]
-                ),
-                "topic": row["topic"],
-                "intent": row["intent"],
-                "sentiment": row["sentiment"],
-                "severity": row["severity"],
+
+                "post_topic":
+                    row["post_topic"],
+
+                "topic":
+                    row["topic"],
+
+                "intent":
+                    row["intent"],
+
+                "sentiment":
+                    row["sentiment"],
+
+                "severity":
+                    row["severity"],
+
                 "confidence": float(
                     row["confidence"] or 0
                 ),
             }
         )
+
 
     return {
         "content": content

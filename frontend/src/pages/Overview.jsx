@@ -1,21 +1,125 @@
-import { useState } from "react"
-import FilterBar from "../components/filters/FilterBar"
-import MetricCards from "../components/cards/MetricCards"
-import SentimentDistributionChart from "../components/charts/SentimentDistributionChart"
-import TopTopicsChart from "../components/charts/TopTopicsChart"
-import IntentDistributionChart from "../components/charts/IntentDistributionChart"
-import PlatformDistribution from "../components/charts/PlatformDistribution"
-import CommentsSentimentOverTime from "../components/charts/CommentsSentimentOverTime";
-import HighSeverityTable from "../components/tables/HighSeverityTable";
-import CommentsAnalysisTable from "../components/tables/CommentsAnalysisTable";
+import {
+    useState,
+} from "react"
+
+import {
+    RotateCcw,
+    Save,
+    SlidersHorizontal,
+} from "lucide-react"
+
+import FilterBar
+    from "../components/filters/FilterBar"
+
+import MetricCards
+    from "../components/cards/MetricCards"
+
+import SentimentDistributionChart
+    from "../components/charts/SentimentDistributionChart"
+
+import TopTopicsChart
+    from "../components/charts/TopTopicsChart"
+
+import IntentDistributionChart
+    from "../components/charts/IntentDistributionChart"
+
+import PlatformDistribution
+    from "../components/charts/PlatformDistribution"
+
+import CommentsSentimentOverTime
+    from "../components/charts/CommentsSentimentOverTime"
+
+import HighSeverityTable
+    from "../components/tables/HighSeverityTable"
+
+import CommentsAnalysisTable
+    from "../components/tables/CommentsAnalysisTable"
+
+
+const EMPTY_FILTERS = {
+    dateFrom: "",
+    dateTo: "",
+    platform: "",
+    postTopic: "",
+    topic: "",
+    sentiment: "",
+    intent: "",
+    severity: "",
+}
 
 
 function Overview() {
-    const [showFilters, setShowFilters] = useState(false)
+    const [
+        showFilters,
+        setShowFilters,
+    ] = useState(false)
+
+    const [
+        draftFilters,
+        setDraftFilters,
+    ] = useState(EMPTY_FILTERS)
+
+    const [
+        appliedFilters,
+        setAppliedFilters,
+    ] = useState(EMPTY_FILTERS)
+
 
     function handleToggleFilters() {
-        setShowFilters(!showFilters)
+        if (!showFilters) {
+            setDraftFilters(
+                appliedFilters
+            )
+        }
+
+        setShowFilters(
+            !showFilters
+        )
     }
+
+
+    function handleFilterChange(
+        name,
+        value,
+    ) {
+        setDraftFilters(
+            (currentFilters) => ({
+                ...currentFilters,
+                [name]: value,
+            })
+        )
+    }
+
+
+    function handleSaveFilters() {
+        setAppliedFilters({
+            ...draftFilters,
+        })
+
+        setShowFilters(false)
+    }
+
+
+    function handleResetFilters() {
+        setDraftFilters({
+            ...EMPTY_FILTERS,
+        })
+
+        setAppliedFilters({
+            ...EMPTY_FILTERS,
+        })
+
+        setShowFilters(false)
+    }
+
+
+    const hasAppliedFilters =
+        Object.values(
+            appliedFilters
+        ).some(
+            (value) => value !== ""
+        )
+
 
     return (
         <div className="overview-page">
@@ -25,49 +129,87 @@ function Overview() {
                 <div className="page-header-top">
 
                     <div className="page-header-text">
+
                         <h1>
                             Social Media Analytics Dashboard
                         </h1>
 
                     </div>
 
-                    <button
-                        className={`filter-toggle-btn ${showFilters ? "active" : ""}`}
-                        onClick={handleToggleFilters}
-                    >
-                        <span className="filter-toggle-icon">
-                            <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                            >
-                                <path
-                                    d="M3 5H21"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M6 12H18"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M10 19H14"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                />
-                            </svg>
-                        </span>
 
-                        <span>
-                            Filters
-                        </span>
-                    </button>
+                    <div className="header-filter-actions">
+
+                        {showFilters ? (
+                            <>
+                                <button
+                                    className="filter-action-btn reset-filter-btn"
+                                    onClick={
+                                        handleResetFilters
+                                    }
+                                >
+                                    <RotateCcw
+                                        size={18}
+                                    />
+
+                                    <span>
+                                        Reset
+                                    </span>
+                                </button>
+
+
+                                <button
+                                    className="filter-action-btn save-filter-btn"
+                                    onClick={
+                                        handleSaveFilters
+                                    }
+                                >
+                                    <Save
+                                        size={18}
+                                    />
+
+                                    <span>
+                                        Save
+                                    </span>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                {hasAppliedFilters && (
+                                    <button
+                                        className="filter-action-btn reset-filter-btn"
+                                        onClick={
+                                            handleResetFilters
+                                        }
+                                    >
+                                        <RotateCcw
+                                            size={18}
+                                        />
+
+                                        <span>
+                                            Reset
+                                        </span>
+                                    </button>
+                                )}
+
+
+                                <button
+                                    className="filter-toggle-btn"
+                                    onClick={
+                                        handleToggleFilters
+                                    }
+                                >
+                                    <SlidersHorizontal
+                                        size={18}
+                                    />
+
+                                    <span>
+                                        Filters
+                                    </span>
+                                </button>
+                            </>
+                        )}
+
+                    </div>
 
                 </div>
 
@@ -76,54 +218,80 @@ function Overview() {
 
             {showFilters && (
                 <div className="filters-panel">
-                    <FilterBar />
+
+                    <FilterBar
+                        filters={
+                            draftFilters
+                        }
+                        onFilterChange={
+                            handleFilterChange
+                        }
+                    />
+
                 </div>
             )}
 
 
-            <MetricCards />
-
-<section className="dashboard-charts">
-    
-    <SentimentDistributionChart />
-
-    <TopTopicsChart />
-
-</section>
+            <MetricCards
+                filters={appliedFilters}
+            />
 
 
-<section className="dashboard-charts">
+            <section className="dashboard-charts">
 
-    <PlatformDistribution />
-    
-    <IntentDistributionChart />
-  
-</section>
+                <SentimentDistributionChart
+                    filters={appliedFilters}
+                />
+
+                <TopTopicsChart
+                    filters={appliedFilters}
+                />
+
+            </section>
 
 
-<section className="overview-full-row">
+            <section className="dashboard-charts">
 
-                <CommentsSentimentOverTime />
+                <PlatformDistribution
+                    filters={appliedFilters}
+                />
+
+                <IntentDistributionChart
+                    filters={appliedFilters}
+                />
 
             </section>
 
 
             <section className="overview-full-row">
 
-                <HighSeverityTable />
+                <CommentsSentimentOverTime
+                    filters={appliedFilters}
+                />
 
             </section>
 
 
             <section className="overview-full-row">
 
-                <CommentsAnalysisTable />
+                <HighSeverityTable
+                    filters={appliedFilters}
+                />
 
             </section>
 
+
+            <section className="overview-full-row">
+
+                <CommentsAnalysisTable
+                    filters={appliedFilters}
+                />
+
+            </section>
 
         </div>
     )
 }
+
 
 export default Overview

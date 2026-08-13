@@ -636,7 +636,109 @@ select {
         rgba(8, 166, 181, 0.12);
 }
 
+/* =========================================================
+   HEADER FILTER ACTIONS
+========================================================= */
 
+.header-filter-actions {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   FILTER ACTION BUTTONS
+========================================================= */
+
+.filter-action-btn {
+    height: 48px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 9px;
+
+    padding: 0 18px;
+
+    border-radius: 14px;
+
+    font-family: "Inter", sans-serif;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+}
+
+
+/* =========================================================
+   RESET FILTER BUTTON
+========================================================= */
+
+.reset-filter-btn {
+    background: #ffffff;
+
+    color: var(--text-secondary);
+
+    border:
+        1px solid var(--border);
+}
+
+
+.reset-filter-btn:hover {
+    color: #d92d20;
+
+    border-color: #fda29b;
+
+    background: #fff7f6;
+
+    transform:
+        translateY(-1px);
+}
+
+
+/* =========================================================
+   SAVE FILTER BUTTON
+========================================================= */
+
+.save-filter-btn {
+    background:
+        var(--touch-primary);
+
+    color: #ffffff;
+
+    border:
+        1px solid
+        var(--touch-primary);
+
+    box-shadow:
+        0 6px 16px
+        rgba(8, 166, 181, 0.16);
+}
+
+
+.save-filter-btn:hover {
+    background:
+        var(--touch-primary-dark);
+
+    border-color:
+        var(--touch-primary-dark);
+
+    transform:
+        translateY(-1px);
+}
 /* =========================================================
    DASHBOARD CONTENT AREA
 ========================================================= */

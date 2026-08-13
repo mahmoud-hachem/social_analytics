@@ -27,21 +27,35 @@ const PLATFORM_CONFIG = {
 }
 
 
-function PlatformDistribution() {
-    const [data, setData] = useState(null)
+function PlatformDistribution({
+    filters,
+}) {
+    const [
+        data,
+        setData,
+    ] = useState(null)
 
-    const [loading, setLoading] =
-        useState(true)
+    const [
+        loading,
+        setLoading,
+    ] = useState(true)
 
-    const [error, setError] =
-        useState(null)
+    const [
+        error,
+        setError,
+    ] = useState(null)
 
 
     useEffect(() => {
         async function loadPlatforms() {
             try {
+                setLoading(true)
+                setError(null)
+
                 const result =
-                    await getPlatforms()
+                    await getPlatforms(
+                        filters
+                    )
 
                 setData(result)
 
@@ -54,17 +68,16 @@ function PlatformDistribution() {
         }
 
         loadPlatforms()
-    }, [])
+
+    }, [filters])
 
 
     if (loading) {
         return (
             <div className="chart-card">
-
                 <div className="chart-status">
                     Loading platforms...
                 </div>
-
             </div>
         )
     }
@@ -73,11 +86,9 @@ function PlatformDistribution() {
     if (error) {
         return (
             <div className="chart-card">
-
                 <div className="chart-status chart-error">
                     {error}
                 </div>
-
             </div>
         )
     }
@@ -89,11 +100,9 @@ function PlatformDistribution() {
     ) {
         return (
             <div className="chart-card">
-
                 <div className="chart-status">
                     No platform data available.
                 </div>
-
             </div>
         )
     }
@@ -105,7 +114,6 @@ function PlatformDistribution() {
             <div className="chart-card-header">
 
                 <div>
-
                     <h2>
                         Platform Distribution
                     </h2>
@@ -113,7 +121,6 @@ function PlatformDistribution() {
                     <p>
                         Collected content by social platform.
                     </p>
-
                 </div>
 
             </div>
@@ -137,7 +144,9 @@ function PlatformDistribution() {
                         return (
                             <div
                                 className="platform-item"
-                                key={item.platform}
+                                key={
+                                    item.platform
+                                }
                             >
 
                                 <div className="platform-item-header">
@@ -147,8 +156,12 @@ function PlatformDistribution() {
                                         <div className="platform-logo-container">
 
                                             <img
-                                                src={config.logo}
-                                                alt={`${config.label} logo`}
+                                                src={
+                                                    config.logo
+                                                }
+                                                alt={
+                                                    `${config.label} logo`
+                                                }
                                                 className="platform-logo"
                                             />
 
@@ -156,21 +169,27 @@ function PlatformDistribution() {
 
 
                                         <span className="platform-name">
-                                            {config.label}
+                                            {
+                                                config.label
+                                            }
                                         </span>
 
                                     </div>
 
 
                                     <strong className="platform-percentage">
-                                        {item.percentage}%
+                                        {
+                                            item.percentage
+                                        }%
                                     </strong>
 
                                 </div>
 
 
                                 <div className="platform-count">
-                                    {item.count} content items
+                                    {
+                                        item.count
+                                    } content items
                                 </div>
 
 
