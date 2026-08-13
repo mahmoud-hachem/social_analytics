@@ -120,8 +120,7 @@ function CommentsAnalysisTable({
                     </h2>
 
                     <p>
-                        Latest analyzed Facebook
-                        and Instagram interactions.
+                        Latest analyzed interactions.
                     </p>
 
                 </div>
