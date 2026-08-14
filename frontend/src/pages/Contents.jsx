@@ -251,7 +251,7 @@ function Comments() {
                 <div>
 
                     <h1>
-                        Comments
+                        Contents
                     </h1>
 
                 </div>

@@ -23,7 +23,7 @@ function Sidebar({
         },
         {
             id: "comments",
-            label: "Comments",
+            label: "Contents",
             icon: MessageSquareText,
         },
     ]

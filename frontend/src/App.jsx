@@ -9,7 +9,7 @@ import Overview
     from "./pages/Overview"
 
 import Comments
-    from "./pages/Comments"
+    from "./pages/Contents"
 
 
 function App() {
