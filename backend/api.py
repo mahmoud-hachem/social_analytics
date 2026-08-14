@@ -1265,3 +1265,638 @@ def get_comments(
                 total_pages,
         },
     }
+
+@app.get("/api/analytics/volume-over-time")
+def get_volume_over_time(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+):
+    conditions = []
+    params = {}
+
+    if date_from:
+        conditions.append(
+            "DATE(c.published_at) >= %(date_from)s"
+        )
+        params["date_from"] = date_from
+
+    if date_to:
+        conditions.append(
+            "DATE(c.published_at) <= %(date_to)s"
+        )
+        params["date_to"] = date_to
+
+    if platform:
+        conditions.append(
+            "c.platform = %(platform)s"
+        )
+        params["platform"] = platform
+
+    if conditions:
+        where_clause = (
+            " WHERE "
+            + " AND ".join(conditions)
+        )
+    else:
+        where_clause = ""
+
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            sql = f"""
+                SELECT
+                    DATE(c.published_at) AS date,
+                    COUNT(*) AS count
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                GROUP BY DATE(c.published_at)
+
+                ORDER BY DATE(c.published_at)
+            """
+
+            cursor.execute(
+                sql,
+                params,
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    return {
+        "data": [
+            {
+                "date": (
+                    row["date"].isoformat()
+                    if row["date"]
+                    else None
+                ),
+                "count": int(
+                    row["count"] or 0
+                ),
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.get("/api/analytics/issues-over-time")
+def get_issues_over_time(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    platform: str | None = None,
+):
+    conditions = []
+    params = {}
+
+    if date_from:
+        conditions.append(
+            "DATE(c.published_at) >= %(date_from)s"
+        )
+        params["date_from"] = date_from
+
+    if date_to:
+        conditions.append(
+            "DATE(c.published_at) <= %(date_to)s"
+        )
+        params["date_to"] = date_to
+
+    if platform:
+        conditions.append(
+            "c.platform = %(platform)s"
+        )
+        params["platform"] = platform
+
+    if conditions:
+        where_clause = (
+            " WHERE "
+            + " AND ".join(conditions)
+        )
+    else:
+        where_clause = ""
+
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            sql = f"""
+                SELECT
+                    DATE(c.published_at) AS date,
+
+                    SUM(
+                        CASE
+                            WHEN a.intent = 'complaint'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS complaints,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'high'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS high_severity
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                {where_clause}
+
+                GROUP BY DATE(c.published_at)
+
+                ORDER BY DATE(c.published_at)
+            """
+
+            cursor.execute(
+                sql,
+                params,
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    return {
+        "data": [
+            {
+                "date": (
+                    row["date"].isoformat()
+                    if row["date"]
+                    else None
+                ),
+                "complaints": int(
+                    row["complaints"] or 0
+                ),
+                "high_severity": int(
+                    row["high_severity"] or 0
+                ),
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.get("/api/analytics/platform-comparison")
+def get_platform_comparison():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.platform,
+
+                    COUNT(*) AS total_content,
+
+                    SUM(
+                        CASE
+                            WHEN a.sentiment = 'negative'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS negative_count,
+
+                    SUM(
+                        CASE
+                            WHEN a.intent = 'complaint'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS complaints,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'high'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS high_severity
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY c.platform
+
+                ORDER BY c.platform
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+    platforms = []
+
+    for row in rows:
+        total = int(
+            row["total_content"] or 0
+        )
+
+        negative_count = int(
+            row["negative_count"] or 0
+        )
+
+        if total > 0:
+            negative_percentage = round(
+                (
+                    negative_count
+                    / total
+                )
+                * 100,
+                1,
+            )
+        else:
+            negative_percentage = 0.0
+
+        platforms.append(
+            {
+                "platform":
+                    row["platform"],
+
+                "total_content":
+                    total,
+
+                "negative_percentage":
+                    negative_percentage,
+
+                "complaints":
+                    int(
+                        row["complaints"]
+                        or 0
+                    ),
+
+                "high_severity":
+                    int(
+                        row["high_severity"]
+                        or 0
+                    ),
+            }
+        )
+
+    return {
+        "platforms": platforms
+    }
+
+@app.get("/api/analytics/topic-distribution")
+def get_topic_distribution():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.topic,
+                    COUNT(*) AS count
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY a.topic
+
+                ORDER BY count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    total = sum(
+        int(row["count"] or 0)
+        for row in rows
+    )
+
+
+    topics = []
+
+    for row in rows:
+        count = int(
+            row["count"] or 0
+        )
+
+        percentage = (
+            round(
+                (count / total) * 100,
+                1,
+            )
+            if total > 0
+            else 0.0
+        )
+
+        topics.append(
+            {
+                "topic": row["topic"],
+                "count": count,
+                "percentage": percentage,
+            }
+        )
+
+
+    return {
+        "total": total,
+        "topics": topics,
+    }
+
+@app.get("/api/analytics/topic-severity")
+def get_topic_severity():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.topic,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'low'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS low_count,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'medium'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS medium_count,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'high'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS high_count
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY a.topic
+
+                ORDER BY
+                    high_count DESC,
+                    medium_count DESC,
+                    low_count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    topics = []
+
+    for row in rows:
+        topics.append(
+            {
+                "topic":
+                    row["topic"],
+
+                "low":
+                    int(
+                        row["low_count"]
+                        or 0
+                    ),
+
+                "medium":
+                    int(
+                        row["medium_count"]
+                        or 0
+                    ),
+
+                "high":
+                    int(
+                        row["high_count"]
+                        or 0
+                    ),
+            }
+        )
+
+
+    return {
+        "topics": topics
+    }
+
+@app.get("/api/analytics/engagement-by-platform")
+def get_engagement_by_platform():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.platform,
+                    COUNT(*) AS interaction_count
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY c.platform
+
+                ORDER BY interaction_count DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    total = sum(
+        int(
+            row["interaction_count"]
+            or 0
+        )
+        for row in rows
+    )
+
+
+    platforms = []
+
+    for row in rows:
+        count = int(
+            row["interaction_count"]
+            or 0
+        )
+
+        percentage = (
+            round(
+                (
+                    count
+                    / total
+                )
+                * 100,
+                1,
+            )
+            if total > 0
+            else 0.0
+        )
+
+        platforms.append(
+            {
+                "platform":
+                    row["platform"],
+
+                "count":
+                    count,
+
+                "percentage":
+                    percentage,
+            }
+        )
+
+
+    return {
+        "total": total,
+        "platforms": platforms,
+    }
+
+@app.get("/api/analytics/topics-to-work-on")
+def get_topics_to_work_on():
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    a.topic,
+
+                    SUM(
+                        CASE
+                            WHEN a.intent = 'complaint'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS complaints,
+
+                    SUM(
+                        CASE
+                            WHEN a.severity = 'high'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS high_severity
+
+                FROM content AS c
+
+                JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                GROUP BY a.topic
+
+                HAVING
+                    complaints > 0
+                    OR high_severity > 0
+
+                ORDER BY
+                    (
+                        complaints
+                        + (
+                            high_severity
+                            * 2
+                        )
+                    ) DESC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    topics = []
+
+    for row in rows:
+        complaints = int(
+            row["complaints"]
+            or 0
+        )
+
+        high_severity = int(
+            row["high_severity"]
+            or 0
+        )
+
+        priority_score = (
+            complaints
+            + (
+                high_severity
+                * 2
+            )
+        )
+
+
+        if priority_score >= 10:
+            priority = "critical"
+
+        elif priority_score >= 6:
+            priority = "high"
+
+        elif priority_score >= 3:
+            priority = "medium"
+
+        else:
+            priority = "low"
+
+
+        topics.append(
+            {
+                "topic":
+                    row["topic"],
+
+                "complaints":
+                    complaints,
+
+                "high_severity":
+                    high_severity,
+
+                "priority_score":
+                    priority_score,
+
+                "priority":
+                    priority,
+            }
+        )
+
+
+    return {
+        "topics":
+            topics[:6]
+    }

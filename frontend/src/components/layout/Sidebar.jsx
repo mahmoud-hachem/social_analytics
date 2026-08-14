@@ -1,6 +1,7 @@
 import {
     LayoutDashboard,
     MessageSquareText,
+    ChartNoAxesCombined,
     PanelLeftClose,
     PanelLeftOpen,
 } from "lucide-react"
@@ -26,6 +27,11 @@ function Sidebar({
             label: "Contents",
             icon: MessageSquareText,
         },
+        {
+    id: "analytics",
+    label: "Analytics",
+    icon: ChartNoAxesCombined,
+},
     ]
 
 

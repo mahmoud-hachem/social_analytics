@@ -11,6 +11,9 @@ import Overview
 import Comments
     from "./pages/Contents"
 
+import Analytics
+    from "./pages/Analytics"
+
 
 function App() {
     const [
@@ -20,14 +23,20 @@ function App() {
 
 
     function renderPage() {
-        if (
-            activePage === "comments"
-        ) {
-            return <Comments />
-        }
-
-        return <Overview />
+    if (
+        activePage === "comments"
+    ) {
+        return <Comments />
     }
+
+    if (
+        activePage === "analytics"
+    ) {
+        return <Analytics />
+    }
+
+    return <Overview />
+}
 
 
     return (

@@ -2147,3 +2147,790 @@ select {
 .comments-error {
     color: #b42318;
 }
+
+/* =========================================================
+   ANALYTICS PAGE
+========================================================= */
+
+.analytics-page {
+    width: 100%;
+}
+
+
+.analytics-page-header h1 {
+    margin: 0;
+
+    font-family: "Outfit", sans-serif;
+
+    font-size: 34px;
+    font-weight: 700;
+
+    letter-spacing: -0.8px;
+
+    color: var(--text-primary);
+}
+
+
+.analytics-page-header p {
+    margin: 6px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+}
+
+
+/* =========================================================
+   FULL WIDTH ANALYTICS CARDS
+========================================================= */
+
+.analytics-full-card {
+    width: 100%;
+
+    margin-top: 20px;
+
+    padding: 22px;
+
+    background: var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(16, 24, 40, 0.045);
+}
+
+
+.analytics-card-header {
+    margin-bottom: 18px;
+}
+
+
+.analytics-card-header h2 {
+    margin: 0;
+
+    font-family:
+        "Outfit",
+        sans-serif;
+
+    font-size: 18px;
+    font-weight: 700;
+
+    color:
+        var(--text-primary);
+}
+
+
+.analytics-card-header p {
+    margin: 5px 0 0;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   LINE CHARTS
+========================================================= */
+
+.analytics-line-chart {
+    width: 100%;
+    height: 300px;
+}
+
+
+/* =========================================================
+   BOTTOM TOPIC GRID
+========================================================= */
+
+.analytics-topic-grid {
+    display: grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+    gap: 18px;
+
+    margin-top: 20px;
+}
+
+
+.analytics-topic-card {
+    min-width: 0;
+
+    padding: 22px;
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(
+            16,
+            24,
+            40,
+            0.045
+        );
+}
+
+
+/* =========================================================
+   TOPIC DISTRIBUTION
+========================================================= */
+
+.topic-distribution-content {
+    min-height: 290px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 24px;
+}
+
+
+.topic-donut-wrapper {
+    position: relative;
+
+    width: 230px;
+    height: 230px;
+
+    flex-shrink: 0;
+}
+
+
+.topic-donut-center {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    pointer-events: none;
+}
+
+
+.topic-donut-center strong {
+    font-family:
+        "Outfit",
+        sans-serif;
+
+    font-size: 27px;
+    font-weight: 700;
+
+    color:
+        var(--text-primary);
+}
+
+
+.topic-donut-center span {
+    margin-top: 2px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 11px;
+}
+
+
+.topic-distribution-legend {
+    flex: 1;
+
+    min-width: 170px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 12px;
+}
+
+
+.topic-legend-item {
+    display: flex;
+
+    align-items: center;
+    justify-content:
+        space-between;
+
+    gap: 12px;
+}
+
+
+.topic-legend-left {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+.topic-legend-left
+span:last-child {
+    color:
+        var(--text-primary);
+
+    font-size: 12px;
+}
+
+
+.topic-legend-dot {
+    width: 9px;
+    height: 9px;
+
+    border-radius: 50%;
+
+    flex-shrink: 0;
+}
+
+
+.topic-legend-item strong {
+    color:
+        var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   TOPIC SEVERITY HEATMAP
+========================================================= */
+
+.topic-heatmap {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 9px;
+}
+
+
+.heatmap-header {
+    display: grid;
+
+    grid-template-columns:
+        minmax(150px, 1.8fr)
+        repeat(3, 1fr);
+
+    gap: 8px;
+
+    padding-bottom: 8px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+
+.heatmap-header
+span:not(:first-child) {
+    text-align: center;
+}
+
+
+.heatmap-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(150px, 1.8fr)
+        repeat(3, 1fr);
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+.heatmap-topic {
+    color:
+        var(--text-primary);
+
+    font-size: 12px;
+    font-weight: 500;
+}
+
+
+.heatmap-cell {
+    min-height: 38px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    transition:
+        transform 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+
+.heatmap-cell:hover {
+    transform:
+        translateY(-1px);
+
+    box-shadow:
+        0 4px 12px
+        rgba(
+            16,
+            24,
+            40,
+            0.08
+        );
+}
+
+
+/* LOW */
+
+.heatmap-low {
+    background:
+        #e8f8f3;
+
+    color:
+        #087a5a;
+}
+
+
+/* MEDIUM */
+
+.heatmap-medium {
+    background:
+        #fef0c7;
+
+    color:
+        #b54708;
+}
+
+
+/* HIGH */
+
+.heatmap-high {
+    background:
+        #fee4e2;
+
+    color:
+        #d92d20;
+}
+
+
+/* =========================================================
+   ANALYTICS STATUS
+========================================================= */
+
+.analytics-status {
+    min-height: 350px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 14px;
+}
+
+
+.analytics-error {
+    color: #b42318;
+}
+.topic-distribution-content {
+    min-height: 360px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 36px;
+}
+
+
+.topic-donut-wrapper {
+    position: relative;
+
+    width: 300px;
+    height: 300px;
+
+    flex-shrink: 0;
+}
+
+
+.topic-donut-center strong {
+    font-family: "Outfit", sans-serif;
+
+    font-size: 34px;
+    font-weight: 700;
+
+    color: var(--text-primary);
+}
+
+
+.topic-donut-center span {
+    margin-top: 4px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   ANALYTICS MAIN + SIDE ROW
+========================================================= */
+
+.analytics-insight-row {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 2fr)
+        minmax(300px, 1fr);
+
+    gap: 18px;
+
+    margin-top: 20px;
+}
+
+
+.analytics-main-card,
+.analytics-side-card {
+    min-width: 0;
+
+    padding: 22px;
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 5px 20px
+        rgba(
+            16,
+            24,
+            40,
+            0.045
+        );
+}
+
+
+.analytics-main-card
+.analytics-line-chart {
+    height: 300px;
+}
+
+
+.analytics-side-card {
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* =========================================================
+   ENGAGEMENT BY PLATFORM
+========================================================= */
+
+.platform-engagement-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 22px;
+
+    margin-top: 14px;
+}
+
+
+.platform-engagement-item {
+    width: 100%;
+}
+
+
+.engagement-platform-top {
+    display: flex;
+
+    align-items: center;
+    justify-content:
+        space-between;
+
+    gap: 12px;
+}
+
+
+.engagement-platform-name {
+    display: flex;
+
+    align-items: center;
+
+    gap: 9px;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+.engagement-platform-name img {
+    width: 24px;
+    height: 24px;
+
+    object-fit: contain;
+}
+
+
+.engagement-platform-top strong {
+    font-family:
+        "Outfit",
+        sans-serif;
+
+    font-size: 20px;
+
+    color:
+        var(--text-primary);
+}
+
+
+.engagement-meta {
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    margin-top: 6px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 11px;
+}
+
+
+.engagement-progress {
+    width: 100%;
+    height: 8px;
+
+    margin-top: 8px;
+
+    overflow: hidden;
+
+    background:
+        #edf1f3;
+
+    border-radius: 20px;
+}
+
+
+.engagement-progress-fill {
+    height: 100%;
+
+    background:
+        var(--touch-primary);
+
+    border-radius: 20px;
+}
+
+
+.engagement-total {
+    margin-top: auto;
+
+    padding-top: 20px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content:
+        space-between;
+
+    border-top:
+        1px solid
+        var(--border);
+
+    color:
+        var(--text-secondary);
+
+    font-size: 12px;
+}
+
+
+.engagement-total strong {
+    font-family:
+        "Outfit",
+        sans-serif;
+
+    font-size: 22px;
+
+    color:
+        var(--text-primary);
+}
+
+
+/* =========================================================
+   TOPICS TO WORK ON
+========================================================= */
+
+.priority-topic-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 10px;
+
+    margin-top: 6px;
+}
+
+
+.priority-topic-item {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px;
+
+    border:
+        1px solid
+        #eef1f3;
+
+    border-radius: 11px;
+
+    background:
+        #fafcfd;
+}
+
+
+.priority-topic-rank {
+    width: 27px;
+    height: 27px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    background:
+        var(--touch-primary-light);
+
+    color:
+        var(--touch-primary-dark);
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+
+.priority-topic-content {
+    flex: 1;
+
+    min-width: 0;
+}
+
+
+.priority-topic-top {
+    display: flex;
+
+    align-items: center;
+    justify-content:
+        space-between;
+
+    gap: 8px;
+}
+
+
+.priority-topic-top strong {
+    font-size: 12px;
+
+    color:
+        var(--text-primary);
+}
+
+
+.priority-topic-stats {
+    display: flex;
+
+    gap: 12px;
+
+    margin-top: 5px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   PRIORITY BADGES
+========================================================= */
+
+.priority-badge {
+    display: inline-flex;
+
+    padding:
+        4px 7px;
+
+    border-radius: 6px;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+
+.priority-critical {
+    color: #b42318;
+
+    background:
+        #fee4e2;
+}
+
+
+.priority-high {
+    color: #b54708;
+
+    background:
+        #fef0c7;
+}
+
+
+.priority-medium {
+    color: #175cd3;
+
+    background:
+        #dbeafe;
+}
+
+
+.priority-low {
+    color: #027a48;
+
+    background:
+        #d1fadf;
+}

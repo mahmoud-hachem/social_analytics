@@ -329,3 +329,104 @@ export async function getComments({
 
     return response.json()
 }
+
+export async function getAnalyticsVolumeOverTime() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/volume-over-time`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load interaction volume."
+        )
+    }
+
+    return response.json()
+}
+
+
+export async function getAnalyticsIssuesOverTime() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/issues-over-time`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load issue trends."
+        )
+    }
+
+    return response.json()
+}
+
+
+export async function getAnalyticsPlatformComparison() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/platform-comparison`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load platform comparison."
+        )
+    }
+
+    return response.json()
+}
+
+export async function getAnalyticsTopicDistribution() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/topic-distribution`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load topic distribution."
+        )
+    }
+
+    return response.json()
+}
+
+export async function getAnalyticsTopicSeverity() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/topic-severity`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load topic severity."
+        )
+    }
+
+    return response.json()
+}
+
+export async function getAnalyticsEngagementByPlatform() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/engagement-by-platform`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load platform engagement."
+        )
+    }
+
+    return response.json()
+}
+
+
+export async function getAnalyticsTopicsToWorkOn() {
+    const response = await fetch(
+        `${API_BASE_URL}/api/analytics/topics-to-work-on`
+    )
+
+    if (!response.ok) {
+        throw new Error(
+            "Failed to load priority topics."
+        )
+    }
+
+    return response.json()
+}
