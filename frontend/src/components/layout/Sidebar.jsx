@@ -27,7 +27,7 @@ function Sidebar({
                 {
     id: "collection",
     label: "Data Collection",
-    icon: Database,
+    icon: DatabaseZap,
 },
         {
             id: "comments",

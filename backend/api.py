@@ -5,6 +5,32 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import time
+
+from fastapi import BackgroundTasks, HTTPException
+
+from facebook_collector import (
+    fetch_all_posts as fb_fetch_all_posts,
+    fetch_all_comments as fb_fetch_all_comments,
+    fetch_comment_replies as fb_fetch_comment_replies,
+    normalize_comment as fb_normalize_comment,
+    normalize_reply as fb_normalize_reply,
+    save_comments as fb_save_comments,
+)
+
+from instagram_collector import (
+    fetch_all_media as ig_fetch_all_media,
+    fetch_all_comments as ig_fetch_all_comments,
+    normalize_comment as ig_normalize_comment,
+    normalize_reply as ig_normalize_reply,
+    save_comments as ig_save_comments,
+)
+
+from content_analyzer import (
+    analyze_text_with_gemini,
+    save_analysis,
+    get_database_connection as get_analysis_database_connection,
+)
 
 load_dotenv()
 
@@ -1899,4 +1925,373 @@ def get_topics_to_work_on():
     return {
         "topics":
             topics[:6]
+    }
+
+@app.get("/api/collection/facebook/posts")
+def get_facebook_posts():
+    posts = fb_fetch_all_posts()
+
+    return {
+        "platform": "facebook",
+        "posts": [
+            {
+                "id": str(post.get("id", "")),
+                "text": str(
+                    post.get("message", "")
+                ).strip(),
+                "created_time": post.get(
+                    "created_time"
+                ),
+            }
+            for post in posts
+        ],
+    }
+
+
+@app.get("/api/collection/instagram/posts")
+def get_instagram_posts():
+    media_items = ig_fetch_all_media()
+
+    return {
+        "platform": "instagram",
+        "posts": [
+            {
+                "id": str(media.get("id", "")),
+                "text": str(
+                    media.get("caption", "")
+                ).strip(),
+                "media_type": media.get(
+                    "media_type"
+                ),
+                "timestamp": media.get(
+                    "timestamp"
+                ),
+                "permalink": media.get(
+                    "permalink"
+                ),
+            }
+            for media in media_items
+        ],
+    }
+
+def analyze_selected_post(
+    platform: str,
+    source_post_id: str,
+) -> None:
+
+    connection = get_analysis_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    c.id,
+                    c.content_text,
+                    c.source_post_text,
+                    parent.content_text AS parent_text
+
+                FROM content AS c
+
+                LEFT JOIN content_analysis AS a
+                    ON a.content_id = c.id
+
+                LEFT JOIN content AS parent
+                    ON parent.platform = c.platform
+                    AND parent.external_id = c.parent_external_id
+
+                WHERE
+                    c.platform = %s
+                    AND c.source_post_id = %s
+                    AND a.content_id IS NULL
+
+                ORDER BY c.id
+                """,
+                (
+                    platform,
+                    source_post_id,
+                ),
+            )
+
+            rows = cursor.fetchall()
+
+    finally:
+        connection.close()
+
+
+    print(
+        f"Starting background analysis for "
+        f"{platform} post {source_post_id}. "
+        f"{len(rows)} items need analysis."
+    )
+
+
+    for index, row in enumerate(rows):
+
+        try:
+            analysis = analyze_text_with_gemini(
+                text=row["content_text"],
+                source_post_text=(
+                    row["source_post_text"] or ""
+                ),
+                parent_text=row["parent_text"],
+            )
+
+            save_analysis(
+                row["id"],
+                analysis,
+            )
+
+            print(
+                f"Analyzed content {row['id']}."
+            )
+
+        except Exception as exc:
+            print(
+                f"Failed analysis for "
+                f"content {row['id']}: {exc}"
+            )
+
+        if index < len(rows) - 1:
+            time.sleep(13)
+
+
+    print(
+        f"Finished background analysis for "
+        f"{platform} post {source_post_id}."
+    )
+
+@app.post(
+    "/api/collection/facebook/posts/{post_id}/collect"
+)
+def collect_facebook_post(
+    post_id: str,
+    background_tasks: BackgroundTasks,
+):
+
+    posts = fb_fetch_all_posts()
+
+    selected_post = next(
+        (
+            post
+            for post in posts
+            if str(post.get("id")) == post_id
+        ),
+        None,
+    )
+
+    if selected_post is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Facebook post not found.",
+        )
+
+
+    post_text = str(
+        selected_post.get(
+            "message",
+            "",
+        )
+    ).strip()
+
+
+    raw_comments = fb_fetch_all_comments(
+        post_id
+    )
+
+    normalized_content = []
+
+    comments_count = 0
+    replies_count = 0
+
+
+    for raw_comment in raw_comments:
+
+        normalized_comment = (
+            fb_normalize_comment(
+                raw_comment,
+                post_id,
+                post_text,
+            )
+        )
+
+        if normalized_comment is not None:
+            normalized_content.append(
+                normalized_comment
+            )
+
+            comments_count += 1
+
+
+        comment_id = str(
+            raw_comment["id"]
+        )
+
+        raw_replies = (
+            fb_fetch_comment_replies(
+                comment_id
+            )
+        )
+
+
+        for raw_reply in raw_replies:
+
+            normalized_reply = (
+                fb_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    post_id=post_id,
+                    post_text=post_text,
+                )
+            )
+
+            if normalized_reply is not None:
+                normalized_content.append(
+                    normalized_reply
+                )
+
+                replies_count += 1
+
+
+    fb_save_comments(
+        normalized_content
+    )
+
+
+    background_tasks.add_task(
+        analyze_selected_post,
+        "facebook",
+        post_id,
+    )
+
+
+    return {
+        "status": "success",
+        "platform": "facebook",
+        "post_id": post_id,
+        "comments": comments_count,
+        "replies": replies_count,
+        "items_processed": (
+            comments_count
+            + replies_count
+        ),
+        "analysis_started": True,
+    }
+
+@app.post(
+    "/api/collection/instagram/posts/{media_id}/collect"
+)
+def collect_instagram_post(
+    media_id: str,
+    background_tasks: BackgroundTasks,
+):
+
+    media_items = ig_fetch_all_media()
+
+    selected_media = next(
+        (
+            media
+            for media in media_items
+            if str(media.get("id")) == media_id
+        ),
+        None,
+    )
+
+    if selected_media is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Instagram post not found.",
+        )
+
+
+    post_text = str(
+        selected_media.get(
+            "caption",
+            "",
+        )
+    ).strip()
+
+
+    raw_comments = ig_fetch_all_comments(
+        media_id
+    )
+
+    normalized_content = []
+
+    comments_count = 0
+    replies_count = 0
+
+
+    for raw_comment in raw_comments:
+
+        normalized_comment = (
+            ig_normalize_comment(
+                raw_comment,
+                media_id,
+                post_text,
+            )
+        )
+
+        if normalized_comment is not None:
+            normalized_content.append(
+                normalized_comment
+            )
+
+            comments_count += 1
+
+
+        comment_id = str(
+            raw_comment["id"]
+        )
+
+
+        replies = (
+            raw_comment
+            .get("replies", {})
+            .get("data", [])
+        )
+
+
+        for raw_reply in replies:
+
+            normalized_reply = (
+                ig_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    media_id=media_id,
+                    post_text=post_text,
+                )
+            )
+
+            if normalized_reply is not None:
+                normalized_content.append(
+                    normalized_reply
+                )
+
+                replies_count += 1
+
+
+    ig_save_comments(
+        normalized_content
+    )
+
+
+    background_tasks.add_task(
+        analyze_selected_post,
+        "instagram",
+        media_id,
+    )
+
+
+    return {
+        "status": "success",
+        "platform": "instagram",
+        "post_id": media_id,
+        "comments": comments_count,
+        "replies": replies_count,
+        "items_processed": (
+            comments_count
+            + replies_count
+        ),
+        "analysis_started": True,
     }
