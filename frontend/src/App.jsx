@@ -8,6 +8,9 @@ import DashboardLayout
 import Overview
     from "./pages/Overview"
 
+import DataCollection
+    from "./pages/DataCollection"
+
 import Comments
     from "./pages/Contents"
 
@@ -23,6 +26,11 @@ function App() {
 
 
     function renderPage() {
+        if (
+  activePage === "collection"
+) {
+  return <DataCollection />
+}
     if (
         activePage === "comments"
     ) {

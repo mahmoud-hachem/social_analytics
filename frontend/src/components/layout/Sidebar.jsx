@@ -2,8 +2,10 @@ import {
     LayoutDashboard,
     MessageSquareText,
     ChartNoAxesCombined,
+    DatabaseZap,
     PanelLeftClose,
     PanelLeftOpen,
+    Database,
 } from "lucide-react"
 
 import touchLogo
@@ -22,6 +24,11 @@ function Sidebar({
             label: "Overview",
             icon: LayoutDashboard,
         },
+                {
+    id: "collection",
+    label: "Data Collection",
+    icon: Database,
+},
         {
             id: "comments",
             label: "Contents",
