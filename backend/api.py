@@ -2295,3 +2295,187 @@ def collect_instagram_post(
         ),
         "analysis_started": True,
     }
+
+# Add these endpoints to backend/api.py after the existing collection endpoints.
+
+@app.get(
+    "/api/collection/facebook/posts/{post_id}/preview"
+)
+def preview_facebook_post(post_id: str):
+    posts = fb_fetch_all_posts()
+
+    selected_post = next(
+        (
+            post
+            for post in posts
+            if str(post.get("id")) == post_id
+        ),
+        None,
+    )
+
+    if selected_post is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Facebook post not found.",
+        )
+
+    post_text = str(
+        selected_post.get(
+            "message",
+            "",
+        )
+    ).strip()
+
+    raw_comments = fb_fetch_all_comments(
+        post_id
+    )
+
+    comments_count = 0
+    replies_count = 0
+
+    for raw_comment in raw_comments:
+        normalized_comment = (
+            fb_normalize_comment(
+                raw_comment,
+                post_id,
+                post_text,
+            )
+        )
+
+        if normalized_comment is not None:
+            comments_count += 1
+
+        comment_id = str(
+            raw_comment.get("id", "")
+        ).strip()
+
+        if not comment_id:
+            continue
+
+        raw_replies = (
+            fb_fetch_comment_replies(
+                comment_id
+            )
+        )
+
+        for raw_reply in raw_replies:
+            normalized_reply = (
+                fb_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    post_id=post_id,
+                    post_text=post_text,
+                )
+            )
+
+            if normalized_reply is not None:
+                replies_count += 1
+
+    return {
+        "platform": "facebook",
+        "post_id": post_id,
+        "text": post_text,
+        "created_time": selected_post.get(
+            "created_time"
+        ),
+        "media_type": "Post",
+        "permalink": None,
+        "comments": comments_count,
+        "replies": replies_count,
+        "items_total": (
+            comments_count
+            + replies_count
+        ),
+    }
+
+
+@app.get(
+    "/api/collection/instagram/posts/{media_id}/preview"
+)
+def preview_instagram_post(media_id: str):
+    media_items = ig_fetch_all_media()
+
+    selected_media = next(
+        (
+            media
+            for media in media_items
+            if str(media.get("id")) == media_id
+        ),
+        None,
+    )
+
+    if selected_media is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Instagram post not found.",
+        )
+
+    post_text = str(
+        selected_media.get(
+            "caption",
+            "",
+        )
+    ).strip()
+
+    raw_comments = ig_fetch_all_comments(
+        media_id
+    )
+
+    comments_count = 0
+    replies_count = 0
+
+    for raw_comment in raw_comments:
+        normalized_comment = (
+            ig_normalize_comment(
+                raw_comment,
+                media_id,
+                post_text,
+            )
+        )
+
+        if normalized_comment is not None:
+            comments_count += 1
+
+        comment_id = str(
+            raw_comment.get("id", "")
+        ).strip()
+
+        replies = (
+            raw_comment
+            .get("replies", {})
+            .get("data", [])
+        )
+
+        for raw_reply in replies:
+            normalized_reply = (
+                ig_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=comment_id,
+                    media_id=media_id,
+                    post_text=post_text,
+                )
+            )
+
+            if normalized_reply is not None:
+                replies_count += 1
+
+    return {
+        "platform": "instagram",
+        "post_id": media_id,
+        "text": post_text,
+        "timestamp": selected_media.get(
+            "timestamp"
+        ),
+        "media_type": selected_media.get(
+            "media_type"
+        ),
+        "permalink": selected_media.get(
+            "permalink"
+        ),
+        "comments": comments_count,
+        "replies": replies_count,
+        "items_total": (
+            comments_count
+            + replies_count
+        ),
+    }
