@@ -8,3 +8,6 @@ to get replies: COMMENT_ID/comments?fields=id,message,created_time,like_count
 Instagram:
 to know post id:INSTAGRAM_BUSINESS_ACCOUNT_ID/media?fields=id,caption,media_type,timestamp,permalink
 to get comments: MEDIA_ID/comments?fields=id,text,timestamp,like_count
+
+
+python -m uvicorn api:app --reload --port 8000
