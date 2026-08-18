@@ -3522,6 +3522,7 @@ span:not(:first-child) {
         grid-template-columns:
             auto 1fr;
     }
+    
 
     .recent-item-count,
     .collection-status {
