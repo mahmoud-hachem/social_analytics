@@ -17,6 +17,9 @@ import Comments
 import Analytics
     from "./pages/Analytics"
 
+import AIInsights
+    from "./pages/AIInsights"
+
 
 function App() {
     const [
@@ -24,18 +27,23 @@ function App() {
         setActivePage,
     ] = useState("overview")
 
+
     function renderPage() {
+
         if (
             activePage === "collection"
         ) {
             return (
                 <DataCollection
                     onOpenContent={() => {
-                        setActivePage("comments")
+                        setActivePage(
+                            "comments"
+                        )
                     }}
                 />
             )
         }
+
 
         if (
             activePage === "comments"
@@ -43,11 +51,20 @@ function App() {
             return <Comments />
         }
 
+
         if (
             activePage === "analytics"
         ) {
             return <Analytics />
         }
+
+
+        if (
+            activePage === "insights"
+        ) {
+            return <AIInsights />
+        }
+
 
         return <Overview />
     }
@@ -56,11 +73,14 @@ function App() {
     return (
         <DashboardLayout
             activePage={activePage}
-            onPageChange={setActivePage}
+            onPageChange={
+                setActivePage
+            }
         >
             {renderPage()}
         </DashboardLayout>
     )
 }
+
 
 export default App

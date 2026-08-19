@@ -5,9 +5,7 @@ import {
 
 import {
     MessagesSquare,
-    Frown,
-    MessageCircleWarning,
-    ShieldAlert,
+    Sparkles,
 } from "lucide-react"
 
 import MetricCard from "./MetricCard"
@@ -17,6 +15,10 @@ import {
 } from "../../api/analyticsApi"
 
 
+const API_BASE =
+    "http://127.0.0.1:8000"
+
+
 function MetricCards({
     filters,
 }) {
@@ -24,6 +26,16 @@ function MetricCards({
         summary,
         setSummary,
     ] = useState(null)
+
+    const [
+        insights,
+        setInsights,
+    ] = useState([])
+
+    const [
+        activeInsight,
+        setActiveInsight,
+    ] = useState(0)
 
     const [
         loading,
@@ -37,29 +49,99 @@ function MetricCards({
 
 
     useEffect(() => {
-        async function loadSummary() {
+        async function loadOverviewData() {
             try {
                 setLoading(true)
                 setError(null)
 
-                const data =
-                    await getSummary(
-                        filters
-                    )
+                const [
+                    summaryData,
+                    insightsResponse,
+                ] = await Promise.all([
+                    getSummary(filters),
 
-                setSummary(data)
+                    fetch(
+                        `${API_BASE}/api/ai-insights/overview`
+                    ),
+                ])
+
+
+                if (
+                    !insightsResponse.ok
+                ) {
+                    throw new Error(
+                        "Failed to load AI insights."
+                    )
+                }
+
+
+                const insightsData =
+                    await insightsResponse.json()
+
+
+                setSummary(
+                    summaryData
+                )
+
+                setInsights(
+                    Array.isArray(
+                        insightsData.insights
+                    )
+                        ? insightsData.insights
+                        : []
+                )
+
+                setActiveInsight(0)
 
             } catch (err) {
-                setError(err.message)
+                setError(
+                    err.message
+                    || "Failed to load overview."
+                )
 
             } finally {
                 setLoading(false)
             }
         }
 
-        loadSummary()
+
+        loadOverviewData()
 
     }, [filters])
+
+
+    useEffect(() => {
+        if (
+            insights.length <= 1
+        ) {
+            return undefined
+        }
+
+
+        const interval =
+            window.setInterval(
+                () => {
+                    setActiveInsight(
+                        (
+                            current
+                        ) =>
+                            (
+                                current + 1
+                            )
+                            % insights.length
+                    )
+                },
+                10000
+            )
+
+
+        return () => {
+            window.clearInterval(
+                interval
+            )
+        }
+
+    }, [insights])
 
 
     if (loading) {
@@ -80,53 +162,165 @@ function MetricCards({
     }
 
 
+    const currentInsight =
+        insights[
+            activeInsight
+        ]
+        || null
+
+
     return (
-        <section className="metric-grid">
+        <section className="overview-summary-grid">
 
             <MetricCard
                 title="Total Content"
                 value={
-                    summary.total_content
+                    summary
+                        ?.total_content
+                    || 0
                 }
                 subtitle={
                     filters.platform
-                        ? filters.platform === "facebook"
+                        ? (
+                            filters.platform
+                            === "facebook"
+                        )
                             ? "Facebook"
                             : "Instagram"
                         : "All Platforms"
                 }
-                icon={MessagesSquare}
-            />
-
-
-            <MetricCard
-                title="Negative"
-                value={
-                    `${summary.negative_percentage}%`
+                icon={
+                    MessagesSquare
                 }
-                subtitle="Negative sentiment"
-                icon={Frown}
             />
 
 
-            <MetricCard
-                title="Complaints"
-                value={
-                    summary.complaints
-                }
-                subtitle="Detected complaints"
-                icon={MessageCircleWarning}
-            />
+            <article className="ai-insight-overview-card">
+
+                <div className="ai-insight-overview-icon">
+                    <Sparkles
+                        size={24}
+                    />
+                </div>
 
 
-            <MetricCard
-                title="High Severity"
-                value={
-                    summary.high_severity
-                }
-                subtitle="Needs attention"
-                icon={ShieldAlert}
-            />
+                <div className="ai-insight-overview-content">
+
+                    <div className="ai-insight-overview-heading">
+
+                        <span>
+                            AI Insight
+                        </span>
+
+
+                        {
+                            insights.length > 0
+                            && (
+                                <span className="ai-insight-overview-number">
+                                    {
+                                        activeInsight
+                                        + 1
+                                    }
+                                    /
+                                    {
+                                        insights.length
+                                    }
+                                </span>
+                            )
+                        }
+
+                    </div>
+
+
+                    {
+                        currentInsight
+                            ? (
+                                <div
+                                    key={
+                                        `${currentInsight.topic}-${activeInsight}`
+                                    }
+                                    className="ai-insight-overview-slide"
+                                >
+
+                                    <h3>
+                                        {
+                                            currentInsight.title
+                                        }
+                                    </h3>
+
+
+                                    <p>
+                                        {
+                                            currentInsight.insight
+                                        }
+                                    </p>
+
+                                </div>
+                            )
+                            : (
+                                <div className="ai-insight-overview-slide">
+
+                                    <h3>
+                                        No AI insights yet
+                                    </h3>
+
+
+                                    <p>
+                                        Collect and analyze content to generate topic insights.
+                                    </p>
+
+                                </div>
+                            )
+                    }
+
+
+                    {
+                        insights.length > 1
+                        && (
+                            <div className="ai-insight-overview-dots">
+
+                                {
+                                    insights.map(
+                                        (
+                                            insight,
+                                            index
+                                        ) => (
+                                            <button
+                                                key={
+                                                    insight.topic
+                                                }
+                                                type="button"
+                                                className={
+                                                    `ai-insight-dot ${
+                                                        index
+                                                        === activeInsight
+                                                            ? "active"
+                                                            : ""
+                                                    }`
+                                                }
+                                                onClick={
+                                                    () =>
+                                                        setActiveInsight(
+                                                            index
+                                                        )
+                                                }
+                                                aria-label={
+                                                    `Show ${
+                                                        insight.title
+                                                    } insight`
+                                                }
+                                            />
+                                        )
+                                    )
+                                }
+
+                            </div>
+                        )
+                    }
+
+                </div>
+
+            </article>
 
         </section>
     )

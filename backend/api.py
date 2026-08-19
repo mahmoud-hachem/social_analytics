@@ -1,14 +1,16 @@
 import os
+import time
 
 import pymysql
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-import time
-
 from fastapi import BackgroundTasks, HTTPException
 
+from topic_insights import (
+    get_overview_topic_insights,
+    refresh_topic_insights_for_post,
+)
 from facebook_collector import (
     fetch_all_posts as fb_fetch_all_posts,
     fetch_all_comments as fb_fetch_all_comments,
@@ -2067,6 +2069,29 @@ def analyze_selected_post(
 
     return successful
 
+def analyze_post_and_refresh_insights(
+    platform: str,
+    source_post_id: str,
+) -> None:
+
+    analyze_selected_post(
+        platform,
+        source_post_id,
+    )
+
+    try:
+        refresh_topic_insights_for_post(
+            platform,
+            source_post_id,
+        )
+
+    except Exception as exc:
+        print(
+            "Topic insight generation failed "
+            f"for {platform} "
+            f"post {source_post_id}: "
+            f"{exc}"
+        )
 @app.post(
     "/api/collection/facebook/posts/{post_id}/collect"
 )
@@ -2163,10 +2188,10 @@ def collect_facebook_post(
     )
 
 
-    analyzed_items = analyze_selected_post(
-        "facebook",
-        post_id,
-    )
+    analyzed_items = analyze_post_and_refresh_insights(
+    "facebook",
+    post_id,
+)
 
 
     return {
@@ -2280,10 +2305,10 @@ def collect_instagram_post(
     )
 
 
-    analyzed_items = analyze_selected_post(
-        "instagram",
-        media_id,
-    )
+    analyzed_items = analyze_post_and_refresh_insights(
+    "instagram",
+    media_id,
+)
 
 
     return {
@@ -2582,4 +2607,34 @@ def preview_instagram_post(media_id: str):
         "new_comments": status["new_comments"],
         "new_replies": status["new_replies"],
         "new_items": status["new_items"],
+    }
+
+@app.get(
+    "/api/ai-insights/overview"
+)
+def get_ai_insights_overview():
+
+    insights = (
+        get_overview_topic_insights(
+            limit=3
+        )
+    )
+
+    return {
+        "insights": insights
+    }
+
+@app.get(
+    "/api/ai-insights"
+)
+def get_all_ai_insights():
+
+    insights = (
+        get_overview_topic_insights(
+            limit=100
+        )
+    )
+
+    return {
+        "insights": insights
     }
