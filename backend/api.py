@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import timezone
 
 import pymysql
 from dotenv import load_dotenv
@@ -1220,14 +1221,12 @@ def get_comments(
                     row["content_text"],
 
                 "published_at": (
-                    row[
-                        "published_at"
-                    ].isoformat()
-                    if row[
-                        "published_at"
-                    ]
-                    else None
-                ),
+    row["published_at"]
+    .replace(tzinfo=timezone.utc)
+    .isoformat()
+    if row["published_at"]
+    else None
+),
 
                 "likes_count":
                     int(

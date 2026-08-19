@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
     Bell,
     CheckCircle2,
     ExternalLink,
     RefreshCw,
+    X,
 } from "lucide-react"
 
 import facebookLogo
@@ -34,6 +35,8 @@ const ALERTS_CHECKED_STORAGE_KEY = "social-analytics-alerts-checked"
 const ALERTS_LAST_CHECK_STORAGE_KEY = "social-analytics-alerts-last-check"
 
 
+
+
 function readStoredAlerts() {
     try {
         const raw = localStorage.getItem(ALERTS_STORAGE_KEY)
@@ -57,6 +60,7 @@ function readStoredLastCheck() {
 
 
 function DataCollection({ onOpenContent }) {
+
     const [
         selectedPlatform,
         setSelectedPlatform,
@@ -73,6 +77,19 @@ function DataCollection({ onOpenContent }) {
     const [collecting, setCollecting] = useState(false)
     const [collectionError, setCollectionError] = useState("")
     const [collectionResult, setCollectionResult] = useState(null)
+
+    useEffect(() => {
+    if (!collectionResult && !collectionError) {
+        return
+    }
+
+    const timeout = setTimeout(() => {
+        setCollectionResult(null)
+        setCollectionError("")
+    }, 5000)
+
+    return () => clearTimeout(timeout)
+}, [collectionResult, collectionError])
 
     const [pendingAlerts, setPendingAlerts] = useState(readStoredAlerts)
     const [pendingLoading, setPendingLoading] = useState(false)
@@ -269,11 +286,6 @@ function DataCollection({ onOpenContent }) {
             )
 
             setSelectedPost(null)
-
-            if (onOpenContent) {
-                onOpenContent()
-            }
-
         } catch (error) {
             setCollectionError(error.message)
 
@@ -332,6 +344,44 @@ function DataCollection({ onOpenContent }) {
                 <div>
                     <h1>Data Collection</h1>
                 </div>
+
+                {collectionResult && (
+    <div className="collection-toast collection-toast-success">
+        <CheckCircle2 size={20} />
+
+        <div>
+            <strong>Collection completed</strong>
+            <span>
+                {collectionResult.items_processed} items collected and analyzed.
+            </span>
+        </div>
+
+        <button
+            type="button"
+            onClick={() => setCollectionResult(null)}
+            aria-label="Close notification"
+        >
+            <X size={17} />
+        </button>
+    </div>
+)}
+
+{collectionError && (
+    <div className="collection-toast collection-toast-error">
+        <div>
+            <strong>Collection failed</strong>
+            <span>{collectionError}</span>
+        </div>
+
+        <button
+            type="button"
+            onClick={() => setCollectionError("")}
+            aria-label="Close notification"
+        >
+            <X size={17} />
+        </button>
+    </div>
+)}
             </div>
 
             <div className="collection-grid">

@@ -3812,6 +3812,7 @@ span:not(:first-child) {
 }
 
 /* Data Collection monitoring refresh */
+
 .collection-alerts-panel {
     min-height: 100%;
 }
@@ -4742,5 +4743,96 @@ span:not(:first-child) {
 
         flex-direction:
             column;
+    }
+}
+
+/* Data Collection alert */
+.collection-toast {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+
+    z-index: 9999;
+
+    min-width: 320px;
+    max-width: 420px;
+
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    padding: 16px 18px;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 12px 35px
+        rgba(16, 24, 40, 0.16);
+
+    animation: collectionToastIn 0.25s ease;
+}
+
+
+.collection-toast > div {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+
+.collection-toast strong {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+
+.collection-toast span {
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+
+.collection-toast button {
+    border: none;
+    background: transparent;
+
+    padding: 2px;
+
+    cursor: pointer;
+
+    opacity: 0.7;
+}
+
+
+.collection-toast button:hover {
+    opacity: 1;
+}
+
+
+.collection-toast-success {
+    background: #ecfdf3;
+    border: 1px solid #abefc6;
+    color: #067647;
+}
+
+
+.collection-toast-error {
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    color: #b42318;
+}
+
+
+@keyframes collectionToastIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
