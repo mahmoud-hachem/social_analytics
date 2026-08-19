@@ -131,7 +131,7 @@ function MetricCards({
                             % insights.length
                     )
                 },
-                10000
+                6500
             )
 
 
