@@ -131,7 +131,7 @@ function Overview() {
                     <div className="page-header-text">
 
                         <h1>
-                            Social Media Analytics Dashboard
+                            Dashboard Overview
                         </h1>
 
                     </div>
