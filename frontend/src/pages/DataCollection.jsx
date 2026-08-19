@@ -726,16 +726,30 @@ function DataCollection({ onOpenContent }) {
                             </button>
 
                             <button
-                                className="choose-post-button"
-                                onClick={collectSelectedPost}
-                                disabled={collecting || loadingPreview}
-                            >
-                                {collecting
-                                    ? "Collecting & analyzing..."
-                                    : loadingPreview
-                                        ? "Loading details..."
-                                        : "Collect & Analyze"}
-                            </button>
+    className="choose-post-button"
+    onClick={collectSelectedPost}
+    disabled={
+        collecting
+        || loadingPreview
+        || Number(
+            selectedPost.preview?.new_items
+            || 0
+        ) === 0
+    }
+>
+    {
+        collecting
+            ? "Collecting & analyzing..."
+            : loadingPreview
+                ? "Loading details..."
+                : Number(
+                    selectedPost.preview?.new_items
+                    || 0
+                ) === 0
+                    ? "No New Content"
+                    : "Collect & Analyze"
+    }
+</button>
                         </div>
                     </div>
                 </div>
