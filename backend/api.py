@@ -1977,7 +1977,7 @@ def get_instagram_posts():
 def analyze_selected_post(
     platform: str,
     source_post_id: str,
-) -> None:
+) -> int:
 
     connection = get_analysis_database_connection()
 
@@ -2026,6 +2026,8 @@ def analyze_selected_post(
     )
 
 
+    successful = 0
+
     for index, row in enumerate(rows):
 
         try:
@@ -2042,6 +2044,8 @@ def analyze_selected_post(
                 analysis,
             )
 
+            successful += 1
+
             print(
                 f"Analyzed content {row['id']}."
             )
@@ -2057,16 +2061,17 @@ def analyze_selected_post(
 
 
     print(
-        f"Finished background analysis for "
+        f"Finished analysis for "
         f"{platform} post {source_post_id}."
     )
+
+    return successful
 
 @app.post(
     "/api/collection/facebook/posts/{post_id}/collect"
 )
 def collect_facebook_post(
     post_id: str,
-    background_tasks: BackgroundTasks,
 ):
 
     posts = fb_fetch_all_posts()
@@ -2158,8 +2163,7 @@ def collect_facebook_post(
     )
 
 
-    background_tasks.add_task(
-        analyze_selected_post,
+    analyzed_items = analyze_selected_post(
         "facebook",
         post_id,
     )
@@ -2175,7 +2179,8 @@ def collect_facebook_post(
             comments_count
             + replies_count
         ),
-        "analysis_started": True,
+        "analysis_completed": True,
+        "analyzed_items": analyzed_items,
     }
 
 @app.post(
@@ -2183,7 +2188,6 @@ def collect_facebook_post(
 )
 def collect_instagram_post(
     media_id: str,
-    background_tasks: BackgroundTasks,
 ):
 
     media_items = ig_fetch_all_media()
@@ -2276,8 +2280,7 @@ def collect_instagram_post(
     )
 
 
-    background_tasks.add_task(
-        analyze_selected_post,
+    analyzed_items = analyze_selected_post(
         "instagram",
         media_id,
     )
@@ -2293,8 +2296,198 @@ def collect_instagram_post(
             comments_count
             + replies_count
         ),
-        "analysis_started": True,
+        "analysis_completed": True,
+        "analyzed_items": analyzed_items,
     }
+
+
+def get_collected_external_ids(
+    platform: str,
+    source_post_id: str,
+) -> set[str]:
+    connection = get_database_connection()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT external_id
+                FROM content
+                WHERE platform = %s
+                  AND source_post_id = %s
+                """,
+                (platform, source_post_id),
+            )
+            rows = cursor.fetchall()
+    finally:
+        connection.close()
+
+    return {
+        str(row["external_id"])
+        for row in rows
+        if row.get("external_id") is not None
+    }
+
+
+def get_facebook_post_live_status(
+    post: dict,
+) -> dict:
+    post_id = str(post.get("id", ""))
+    post_text = str(post.get("message", "")).strip()
+    collected_ids = get_collected_external_ids(
+        "facebook",
+        post_id,
+    )
+
+    raw_comments = fb_fetch_all_comments(post_id)
+
+    comments_count = 0
+    replies_count = 0
+    new_comments = 0
+    new_replies = 0
+
+    for raw_comment in raw_comments:
+        normalized_comment = fb_normalize_comment(
+            raw_comment,
+            post_id,
+            post_text,
+        )
+
+        if normalized_comment is not None:
+            comments_count += 1
+            if normalized_comment["external_id"] not in collected_ids:
+                new_comments += 1
+
+        comment_id = str(raw_comment.get("id", "")).strip()
+        if not comment_id:
+            continue
+
+        raw_replies = fb_fetch_comment_replies(comment_id)
+
+        for raw_reply in raw_replies:
+            normalized_reply = fb_normalize_reply(
+                raw_reply,
+                parent_comment_id=comment_id,
+                post_id=post_id,
+                post_text=post_text,
+            )
+
+            if normalized_reply is not None:
+                replies_count += 1
+                if normalized_reply["external_id"] not in collected_ids:
+                    new_replies += 1
+
+    return {
+        "post_id": post_id,
+        "comments": comments_count,
+        "replies": replies_count,
+        "total_items": comments_count + replies_count,
+        "new_comments": new_comments,
+        "new_replies": new_replies,
+        "new_items": new_comments + new_replies,
+    }
+
+
+def get_instagram_post_live_status(
+    media: dict,
+) -> dict:
+    media_id = str(media.get("id", ""))
+    post_text = str(media.get("caption", "")).strip()
+    collected_ids = get_collected_external_ids(
+        "instagram",
+        media_id,
+    )
+
+    raw_comments = ig_fetch_all_comments(media_id)
+
+    comments_count = 0
+    replies_count = 0
+    new_comments = 0
+    new_replies = 0
+
+    for raw_comment in raw_comments:
+        normalized_comment = ig_normalize_comment(
+            raw_comment,
+            media_id,
+            post_text,
+        )
+
+        if normalized_comment is not None:
+            comments_count += 1
+            if normalized_comment["external_id"] not in collected_ids:
+                new_comments += 1
+
+        comment_id = str(raw_comment.get("id", "")).strip()
+        replies = (
+            raw_comment
+            .get("replies", {})
+            .get("data", [])
+        )
+
+        for raw_reply in replies:
+            normalized_reply = ig_normalize_reply(
+                raw_reply,
+                parent_comment_id=comment_id,
+                media_id=media_id,
+                post_text=post_text,
+            )
+
+            if normalized_reply is not None:
+                replies_count += 1
+                if normalized_reply["external_id"] not in collected_ids:
+                    new_replies += 1
+
+    return {
+        "post_id": media_id,
+        "comments": comments_count,
+        "replies": replies_count,
+        "total_items": comments_count + replies_count,
+        "new_comments": new_comments,
+        "new_replies": new_replies,
+        "new_items": new_comments + new_replies,
+    }
+
+
+@app.get("/api/collection/pending")
+def get_pending_collection_items():
+    alerts = []
+
+    facebook_posts = fb_fetch_all_posts()
+    for index, post in enumerate(facebook_posts):
+        status = get_facebook_post_live_status(post)
+        if status["new_items"] > 0:
+            alerts.append({
+                "platform": "facebook",
+                "post_id": status["post_id"],
+                "post_number": index + 1,
+                "new_comments": status["new_comments"],
+                "new_replies": status["new_replies"],
+                "new_items": status["new_items"],
+                "total_items": status["total_items"],
+            })
+
+    instagram_posts = ig_fetch_all_media()
+    for index, media in enumerate(instagram_posts):
+        status = get_instagram_post_live_status(media)
+        if status["new_items"] > 0:
+            alerts.append({
+                "platform": "instagram",
+                "post_id": status["post_id"],
+                "post_number": index + 1,
+                "new_comments": status["new_comments"],
+                "new_replies": status["new_replies"],
+                "new_items": status["new_items"],
+                "total_items": status["total_items"],
+            })
+
+    return {
+        "alerts": alerts,
+        "total_new_items": sum(
+            alert["new_items"]
+            for alert in alerts
+        ),
+    }
+
 
 # Add these endpoints to backend/api.py after the existing collection endpoints.
 
@@ -2319,73 +2512,27 @@ def preview_facebook_post(post_id: str):
             detail="Facebook post not found.",
         )
 
-    post_text = str(
-        selected_post.get(
-            "message",
-            "",
-        )
-    ).strip()
-
-    raw_comments = fb_fetch_all_comments(
-        post_id
+    status = get_facebook_post_live_status(
+        selected_post
     )
-
-    comments_count = 0
-    replies_count = 0
-
-    for raw_comment in raw_comments:
-        normalized_comment = (
-            fb_normalize_comment(
-                raw_comment,
-                post_id,
-                post_text,
-            )
-        )
-
-        if normalized_comment is not None:
-            comments_count += 1
-
-        comment_id = str(
-            raw_comment.get("id", "")
-        ).strip()
-
-        if not comment_id:
-            continue
-
-        raw_replies = (
-            fb_fetch_comment_replies(
-                comment_id
-            )
-        )
-
-        for raw_reply in raw_replies:
-            normalized_reply = (
-                fb_normalize_reply(
-                    raw_reply,
-                    parent_comment_id=comment_id,
-                    post_id=post_id,
-                    post_text=post_text,
-                )
-            )
-
-            if normalized_reply is not None:
-                replies_count += 1
 
     return {
         "platform": "facebook",
         "post_id": post_id,
-        "text": post_text,
+        "text": str(
+            selected_post.get("message", "")
+        ).strip(),
         "created_time": selected_post.get(
             "created_time"
         ),
         "media_type": "Post",
         "permalink": None,
-        "comments": comments_count,
-        "replies": replies_count,
-        "items_total": (
-            comments_count
-            + replies_count
-        ),
+        "comments": status["comments"],
+        "replies": status["replies"],
+        "total_items": status["total_items"],
+        "new_comments": status["new_comments"],
+        "new_replies": status["new_replies"],
+        "new_items": status["new_items"],
     }
 
 
@@ -2410,59 +2557,16 @@ def preview_instagram_post(media_id: str):
             detail="Instagram post not found.",
         )
 
-    post_text = str(
-        selected_media.get(
-            "caption",
-            "",
-        )
-    ).strip()
-
-    raw_comments = ig_fetch_all_comments(
-        media_id
+    status = get_instagram_post_live_status(
+        selected_media
     )
-
-    comments_count = 0
-    replies_count = 0
-
-    for raw_comment in raw_comments:
-        normalized_comment = (
-            ig_normalize_comment(
-                raw_comment,
-                media_id,
-                post_text,
-            )
-        )
-
-        if normalized_comment is not None:
-            comments_count += 1
-
-        comment_id = str(
-            raw_comment.get("id", "")
-        ).strip()
-
-        replies = (
-            raw_comment
-            .get("replies", {})
-            .get("data", [])
-        )
-
-        for raw_reply in replies:
-            normalized_reply = (
-                ig_normalize_reply(
-                    raw_reply,
-                    parent_comment_id=comment_id,
-                    media_id=media_id,
-                    post_text=post_text,
-                )
-            )
-
-            if normalized_reply is not None:
-                replies_count += 1
 
     return {
         "platform": "instagram",
         "post_id": media_id,
-        "text": post_text,
+        "text": str(
+            selected_media.get("caption", "")
+        ).strip(),
         "timestamp": selected_media.get(
             "timestamp"
         ),
@@ -2472,10 +2576,10 @@ def preview_instagram_post(media_id: str):
         "permalink": selected_media.get(
             "permalink"
         ),
-        "comments": comments_count,
-        "replies": replies_count,
-        "items_total": (
-            comments_count
-            + replies_count
-        ),
+        "comments": status["comments"],
+        "replies": status["replies"],
+        "total_items": status["total_items"],
+        "new_comments": status["new_comments"],
+        "new_replies": status["new_replies"],
+        "new_items": status["new_items"],
     }

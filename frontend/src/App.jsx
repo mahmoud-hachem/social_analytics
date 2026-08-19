@@ -24,27 +24,33 @@ function App() {
         setActivePage,
     ] = useState("overview")
 
-
     function renderPage() {
         if (
-  activePage === "collection"
-) {
-  return <DataCollection />
-}
-    if (
-        activePage === "comments"
-    ) {
-        return <Comments />
-    }
+            activePage === "collection"
+        ) {
+            return (
+                <DataCollection
+                    onOpenContent={() => {
+                        setActivePage("comments")
+                    }}
+                />
+            )
+        }
 
-    if (
-        activePage === "analytics"
-    ) {
-        return <Analytics />
-    }
+        if (
+            activePage === "comments"
+        ) {
+            return <Comments />
+        }
 
-    return <Overview />
-}
+        if (
+            activePage === "analytics"
+        ) {
+            return <Analytics />
+        }
+
+        return <Overview />
+    }
 
 
     return (
@@ -56,6 +62,5 @@ function App() {
         </DashboardLayout>
     )
 }
-
 
 export default App

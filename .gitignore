@@ -3,6 +3,8 @@ venv/
 .vscode/
 
 frontend/public/design.png
+backend/query.txt
+backend/review_app.py
 
 # Logs
 logs

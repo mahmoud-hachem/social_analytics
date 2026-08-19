@@ -1,13 +1,10 @@
-import {
-    useState,
-} from "react"
+import { useState } from "react"
 
 import {
+    Bell,
     CheckCircle2,
-    Clock3,
-    ChevronDown,
-    ChevronUp,
     ExternalLink,
+    RefreshCw,
 } from "lucide-react"
 
 import facebookLogo
@@ -15,34 +12,6 @@ import facebookLogo
 
 import instagramLogo
     from "../assets/instagram-logo.png"
-
-
-const RECENT_COLLECTIONS_KEY =
-    "touchboard_recent_collections_v2"
-
-
-function readRecentCollections() {
-    try {
-        const storedValue = localStorage.getItem(
-            RECENT_COLLECTIONS_KEY
-        )
-
-        if (!storedValue) {
-            return []
-        }
-
-        const parsedValue = JSON.parse(
-            storedValue
-        )
-
-        return Array.isArray(parsedValue)
-            ? parsedValue
-            : []
-
-    } catch {
-        return []
-    }
-}
 
 
 function formatPostDate(value) {
@@ -60,88 +29,114 @@ function formatPostDate(value) {
 }
 
 
-function DataCollection() {
+const ALERTS_STORAGE_KEY = "social-analytics-pending-alerts"
+const ALERTS_CHECKED_STORAGE_KEY = "social-analytics-alerts-checked"
+const ALERTS_LAST_CHECK_STORAGE_KEY = "social-analytics-alerts-last-check"
 
+
+function readStoredAlerts() {
+    try {
+        const raw = localStorage.getItem(ALERTS_STORAGE_KEY)
+        return raw ? JSON.parse(raw) : []
+    } catch {
+        return []
+    }
+}
+
+
+function readStoredLastCheck() {
+    const raw = localStorage.getItem(ALERTS_LAST_CHECK_STORAGE_KEY)
+
+    if (!raw) {
+        return null
+    }
+
+    const value = new Date(raw)
+    return Number.isNaN(value.getTime()) ? null : value
+}
+
+
+function DataCollection({ onOpenContent }) {
     const [
         selectedPlatform,
         setSelectedPlatform,
     ] = useState(null)
 
-    const [
-        posts,
-        setPosts,
-    ] = useState([])
+    const [posts, setPosts] = useState([])
+    const [loadingPosts, setLoadingPosts] = useState(false)
+    const [postError, setPostError] = useState("")
 
-    const [
-        postsExpanded,
-        setPostsExpanded,
-    ] = useState(false)
+    const [selectedPost, setSelectedPost] = useState(null)
+    const [loadingPreview, setLoadingPreview] = useState(false)
+    const [previewError, setPreviewError] = useState("")
 
-    const [
-        expandedPostIds,
-        setExpandedPostIds,
-    ] = useState({})
+    const [collecting, setCollecting] = useState(false)
+    const [collectionError, setCollectionError] = useState("")
+    const [collectionResult, setCollectionResult] = useState(null)
 
-    const [
-        loadingPosts,
-        setLoadingPosts,
-    ] = useState(false)
+    const [pendingAlerts, setPendingAlerts] = useState(readStoredAlerts)
+    const [pendingLoading, setPendingLoading] = useState(false)
+    const [hasCheckedAlerts, setHasCheckedAlerts] = useState(
+        () => localStorage.getItem(ALERTS_CHECKED_STORAGE_KEY) === "true"
+    )
+    const [pendingError, setPendingError] = useState("")
+    const [lastAlertCheck, setLastAlertCheck] = useState(readStoredLastCheck)
 
-    const [
-        postError,
-        setPostError,
-    ] = useState("")
 
-    const [
-        selectedPost,
-        setSelectedPost,
-    ] = useState(null)
+    async function loadPendingAlerts({ silent = false } = {}) {
+        if (!silent) {
+            setPendingLoading(true)
+        }
 
-    const [
-        loadingPreview,
-        setLoadingPreview,
-    ] = useState(false)
+        setPendingError("")
 
-    const [
-        previewError,
-        setPreviewError,
-    ] = useState("")
+        try {
+            const response = await fetch(
+                "http://127.0.0.1:8000/api/collection/pending"
+            )
 
-    const [
-        collecting,
-        setCollecting,
-    ] = useState(false)
+            const data = await response.json()
 
-    const [
-        collectionError,
-        setCollectionError,
-    ] = useState("")
+            if (!response.ok) {
+                throw new Error(
+                    data.detail
+                    || "Could not check for new content."
+                )
+            }
 
-    const [
-        collectionResult,
-        setCollectionResult,
-    ] = useState(null)
+            const alerts = data.alerts || []
+            const checkedAt = new Date()
 
-    const [
-        recentCollections,
-        setRecentCollections,
-    ] = useState(readRecentCollections)
+            setPendingAlerts(alerts)
+            setLastAlertCheck(checkedAt)
+            setHasCheckedAlerts(true)
+
+            localStorage.setItem(
+                ALERTS_STORAGE_KEY,
+                JSON.stringify(alerts),
+            )
+            localStorage.setItem(
+                ALERTS_CHECKED_STORAGE_KEY,
+                "true",
+            )
+            localStorage.setItem(
+                ALERTS_LAST_CHECK_STORAGE_KEY,
+                checkedAt.toISOString(),
+            )
+
+        } catch (error) {
+            setPendingError(error.message)
+
+        } finally {
+            if (!silent) {
+                setPendingLoading(false)
+            }
+        }
+    }
 
 
     async function loadPosts(platform) {
-        if (
-            selectedPlatform === platform
-            && posts.length > 0
-        ) {
-            setPostsExpanded(
-                (currentValue) => !currentValue
-            )
-            return
-        }
-
         setSelectedPlatform(platform)
-        setPostsExpanded(true)
-        setExpandedPostIds({})
         setLoadingPosts(true)
         setPostError("")
         setCollectionError("")
@@ -154,22 +149,19 @@ function DataCollection() {
                 `http://127.0.0.1:8000/api/collection/${platform}/posts`
             )
 
+            const data = await response.json()
+
             if (!response.ok) {
                 throw new Error(
-                    "Could not load posts."
+                    data.detail
+                    || "Could not load posts."
                 )
             }
 
-            const data = await response.json()
-
-            setPosts(
-                data.posts || []
-            )
+            setPosts(data.posts || [])
 
         } catch (error) {
-            setPostError(
-                error.message
-            )
+            setPostError(error.message)
 
         } finally {
             setLoadingPosts(false)
@@ -177,22 +169,8 @@ function DataCollection() {
     }
 
 
-    function togglePostCaption(postId) {
-        setExpandedPostIds(
-            (currentValue) => ({
-                ...currentValue,
-                [postId]: !currentValue[postId],
-            })
-        )
-    }
-
-
-    async function handleSelectPost(
-        post,
-        index,
-    ) {
-        const displayLabel =
-            `Post ${index + 1}`
+    async function handleSelectPost(post, index) {
+        const displayLabel = `Post ${index + 1}`
 
         setCollectionError("")
         setCollectionResult(null)
@@ -219,26 +197,22 @@ function DataCollection() {
                 )
             }
 
-            setSelectedPost(
-                (currentValue) => {
-                    if (
-                        !currentValue
-                        || currentValue.id !== post.id
-                    ) {
-                        return currentValue
-                    }
-
-                    return {
-                        ...currentValue,
-                        preview: data,
-                    }
+            setSelectedPost((currentValue) => {
+                if (
+                    !currentValue
+                    || currentValue.id !== post.id
+                ) {
+                    return currentValue
                 }
-            )
+
+                return {
+                    ...currentValue,
+                    preview: data,
+                }
+            })
 
         } catch (error) {
-            setPreviewError(
-                error.message
-            )
+            setPreviewError(error.message)
 
         } finally {
             setLoadingPreview(false)
@@ -246,53 +220,8 @@ function DataCollection() {
     }
 
 
-    function saveRecentCollection(
-        post,
-        result,
-    ) {
-        const newCollection = {
-            id: `${Date.now()}-${selectedPlatform}-${post.id}`,
-            platform: selectedPlatform,
-            postId: post.id,
-            postLabel: post.displayLabel,
-            caption:
-                post.text
-                || "No caption/message",
-            comments: result.comments || 0,
-            replies: result.replies || 0,
-            itemsProcessed:
-                result.items_processed || 0,
-            collectedAt:
-                new Date().toISOString(),
-        }
-
-        setRecentCollections(
-            (currentValue) => {
-                const nextValue = [
-                    newCollection,
-                    ...currentValue,
-                ].slice(0, 5)
-
-                try {
-                    localStorage.setItem(
-                        RECENT_COLLECTIONS_KEY,
-                        JSON.stringify(nextValue)
-                    )
-                } catch {
-                    // Keep the UI working if storage is unavailable.
-                }
-
-                return nextValue
-            }
-        )
-    }
-
-
     async function collectSelectedPost() {
-        if (
-            !selectedPlatform
-            || !selectedPost
-        ) {
+        if (!selectedPlatform || !selectedPost) {
             return
         }
 
@@ -317,27 +246,36 @@ function DataCollection() {
             if (!response.ok) {
                 throw new Error(
                     data.detail
-                    || "Collection failed."
+                    || "Collection and analysis failed."
                 )
             }
 
             setCollectionResult({
                 ...data,
-                postLabel:
-                    postBeingCollected.displayLabel,
+                postLabel: postBeingCollected.displayLabel,
             })
 
-            saveRecentCollection(
-                postBeingCollected,
-                data,
+            const remainingAlerts = pendingAlerts.filter(
+                (alert) => !(
+                    alert.platform === selectedPlatform
+                    && String(alert.post_id) === String(postBeingCollected.id)
+                )
+            )
+
+            setPendingAlerts(remainingAlerts)
+            localStorage.setItem(
+                ALERTS_STORAGE_KEY,
+                JSON.stringify(remainingAlerts),
             )
 
             setSelectedPost(null)
 
+            if (onOpenContent) {
+                onOpenContent()
+            }
+
         } catch (error) {
-            setCollectionError(
-                error.message
-            )
+            setCollectionError(error.message)
 
         } finally {
             setCollecting(false)
@@ -345,14 +283,12 @@ function DataCollection() {
     }
 
 
+    async function openAlertPost(alert) {
+        await loadPosts(alert.platform)
+    }
+
+
     const sources = [
-        {
-            id: "instagram",
-            name: "Instagram",
-            description:
-                "Choose a post and collect its comments and replies.",
-            logo: instagramLogo,
-        },
         {
             id: "facebook",
             name: "Facebook",
@@ -360,8 +296,14 @@ function DataCollection() {
                 "Choose a post and collect its comments and replies.",
             logo: facebookLogo,
         },
+        {
+            id: "instagram",
+            name: "Instagram",
+            description:
+                "Choose a post and collect its comments and replies.",
+            logo: instagramLogo,
+        },
     ]
-
 
     const platformName =
         selectedPlatform === "facebook"
@@ -386,34 +328,20 @@ function DataCollection() {
 
     return (
         <div className="collection-page">
-
             <div className="collection-heading">
                 <div>
-                    <h1>
-                        Data Collection
-                    </h1>
-
-                    <p>
-                        Collect comments and replies
-                        from your connected social media pages.
-                    </p>
+                    <h1>Data Collection</h1>
                 </div>
             </div>
 
-
             <div className="collection-grid">
-
                 <section className="collection-panel">
                     <div className="collection-panel-header">
                         <div>
-                            <h2>
-                                Collection Sources
-                            </h2>
-
+                            <h2>Collection Sources</h2>
                             <p>
-                                Select a platform,
-                                then choose the post
-                                you want to collect.
+                                Select a platform, then choose
+                                the post you want to collect.
                             </p>
                         </div>
                     </div>
@@ -433,13 +361,8 @@ function DataCollection() {
                                 </div>
 
                                 <div className="source-info">
-                                    <h3>
-                                        {source.name}
-                                    </h3>
-
-                                    <p>
-                                        {source.description}
-                                    </p>
+                                    <h3>{source.name}</h3>
+                                    <p>{source.description}</p>
                                 </div>
 
                                 <span className="connected-badge">
@@ -448,11 +371,7 @@ function DataCollection() {
 
                                 <button
                                     className="choose-post-button"
-                                    onClick={() =>
-                                        loadPosts(
-                                            source.id
-                                        )
-                                    }
+                                    onClick={() => loadPosts(source.id)}
                                 >
                                     Choose Post
                                 </button>
@@ -461,221 +380,191 @@ function DataCollection() {
                     </div>
                 </section>
 
-
-                <section className="collection-panel recent-collections-panel">
-                    <div className="collection-panel-header">
+                <section className="collection-panel collection-alerts-panel">
+                    <div className="collection-panel-header collection-alerts-header">
                         <div>
-                            <h2>
-                                Recent Collections
-                            </h2>
-
+                            <h2>Collection Alerts</h2>
                             <p>
-                                Posts collected from this page.
+                                New comments and replies waiting
+                                to be collected.
                             </p>
                         </div>
+
+                        <button
+                            className="collection-refresh-button"
+                            onClick={() => loadPendingAlerts()}
+                            disabled={pendingLoading}
+                            title="Check for new content"
+                        >
+                            <RefreshCw
+                                size={17}
+                                className={
+                                    pendingLoading
+                                        ? "refresh-spinning"
+                                        : ""
+                                }
+                            />
+                        </button>
                     </div>
 
-                    {recentCollections.length === 0 ? (
-                        <div className="recent-collection-empty">
-                            <strong>
-                                No recent data
-                            </strong>
+                    {pendingLoading ? (
+                        <div className="collection-alert-empty">
+                            <span>Checking for new content...</span>
+                        </div>
+                    ) : pendingError ? (
+                        <div className="collection-alert-empty alert-error-state">
+                            <strong>Could not check content</strong>
+                            <span>{pendingError}</span>
+                        </div>
+                    ) : !hasCheckedAlerts ? (
+                        <div className="collection-alert-empty">
+                            <Bell size={24} />
+                            <strong>Check for new content</strong>
                             <span>
-                                Your next successful collection
-                                will appear here.
+                                Click refresh to check for new comments or replies.
+                            </span>
+                        </div>
+                    ) : pendingAlerts.length === 0 ? (
+                        <div className="collection-alert-empty alert-up-to-date">
+                            <CheckCircle2 size={24} />
+                            <strong>All content collected</strong>
+                            <span>
+                                No new comments or replies are waiting.
                             </span>
                         </div>
                     ) : (
-                        <div className="recent-collection-list">
-                            {recentCollections.map(
-                                (collection) => {
-                                    const logo =
-                                        collection.platform === "facebook"
-                                            ? facebookLogo
-                                            : instagramLogo
+                        <div className="collection-alert-list">
+                            {pendingAlerts.map((alert) => {
+                                const isFacebook =
+                                    alert.platform === "facebook"
 
-                                    const name =
-                                        collection.platform === "facebook"
-                                            ? "Facebook"
-                                            : "Instagram"
+                                const logo = isFacebook
+                                    ? facebookLogo
+                                    : instagramLogo
 
-                                    return (
-                                        <div
-                                            key={collection.id}
-                                            className="recent-collection-item"
-                                        >
-                                            <div className="recent-platform-icon">
-                                                <img
-                                                    src={logo}
-                                                    alt={name}
-                                                    className="collection-platform-logo"
-                                                />
-                                            </div>
+                                const name = isFacebook
+                                    ? "Facebook"
+                                    : "Instagram"
 
-                                            <div className="recent-collection-info">
-                                                <strong>
-                                                    {name}
-                                                    {" · "}
-                                                    {collection.postLabel}
-                                                </strong>
-
-                                                <span>
-                                                    {collection.caption}
-                                                </span>
-
-                                                <small>
-                                                    {formatPostDate(
-                                                        collection.collectedAt
-                                                    )}
-                                                </small>
-                                            </div>
-
-                                            <span className="recent-item-count">
-                                                {collection.itemsProcessed}
-                                                {" items"}
-                                            </span>
-
-                                            <div className="collection-status">
-                                                <CheckCircle2
-                                                    size={18}
-                                                />
-
-                                                <span>
-                                                    Completed
-                                                </span>
-                                            </div>
+                                return (
+                                    <button
+                                        key={`${alert.platform}-${alert.post_id}`}
+                                        className="collection-alert-item"
+                                        onClick={() => openAlertPost(alert)}
+                                    >
+                                        <div className="collection-alert-icon">
+                                            <img
+                                                src={logo}
+                                                alt={name}
+                                                className="collection-platform-logo"
+                                            />
                                         </div>
-                                    )
-                                }
-                            )}
+
+                                        <div className="collection-alert-info">
+                                            <strong>
+                                                {name} · Post {alert.post_number}
+                                            </strong>
+
+                                            <span>
+                                                {alert.new_comments} new comment{alert.new_comments === 1 ? "" : "s"}
+                                                {" · "}
+                                                {alert.new_replies} new repl{alert.new_replies === 1 ? "y" : "ies"}
+                                            </span>
+                                        </div>
+
+                                        <span className="collection-alert-count">
+                                            {alert.new_items} new
+                                        </span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {lastAlertCheck && !pendingLoading && (
+                        <div className="collection-alert-last-check">
+                            Last checked {lastAlertCheck.toLocaleTimeString()}
                         </div>
                     )}
                 </section>
             </div>
 
-
             {selectedPlatform && (
                 <section className="collection-panel posts-panel">
                     <div className="collection-panel-header posts-panel-header">
                         <div>
-                            <h2>
-                                {platformName} Posts
-                            </h2>
+                            <h2>{platformName} Posts</h2>
 
-                            <p>
-                                Preview a caption,
-                                then select the post to collect.
-                            </p>
                         </div>
-
-                        <button
-                            className="posts-panel-toggle"
-                            onClick={() =>
-                                setPostsExpanded(
-                                    (currentValue) =>
-                                        !currentValue
-                                )
-                            }
-                            aria-label={
-                                postsExpanded
-                                    ? "Collapse posts"
-                                    : "Expand posts"
-                            }
-                            title={
-                                postsExpanded
-                                    ? "Collapse posts"
-                                    : "Expand posts"
-                            }
-                        >
-                            {postsExpanded ? (
-                                <ChevronUp size={20} />
-                            ) : (
-                                <ChevronDown size={20} />
-                            )}
-                        </button>
                     </div>
 
-                    {postsExpanded && (
-                        <div className="posts-panel-body">
-                            {loadingPosts && (
+                    <div className="posts-panel-body">
+                        {loadingPosts && (
+                            <p className="collection-posts-status">
+                                Loading posts...
+                            </p>
+                        )}
+
+                        {postError && (
+                            <p className="collection-error">
+                                {postError}
+                            </p>
+                        )}
+
+                        {!loadingPosts
+                            && !postError
+                            && posts.length === 0 && (
                                 <p className="collection-posts-status">
-                                    Loading posts...
+                                    No posts found.
                                 </p>
                             )}
 
-                            {postError && (
-                                <p className="collection-error">
-                                    {postError}
-                                </p>
-                            )}
+                        {!loadingPosts
+                            && !postError
+                            && posts.length > 0 && (
+                                <div className="post-selection-list">
+                                    {posts.map((post, index) => {
+                                        const pendingAlert = pendingAlerts.find(
+                                            (alert) =>
+                                                alert.platform === selectedPlatform
+                                                && String(alert.post_id) === String(post.id)
+                                        )
 
-                            {!loadingPosts
-                                && !postError
-                                && posts.length === 0 && (
-                                    <p className="collection-posts-status">
-                                        No posts found.
-                                    </p>
-                                )}
+                                        return (
+                                            <div
+                                                key={post.id}
+                                                className={`post-selection-card${
+                                                    pendingAlert
+                                                        ? " post-selection-card-pending"
+                                                        : ""
+                                                }`}
+                                            >
+                                                <div className="post-selection-main">
+                                                    <strong className="post-number">
+                                                        Post {index + 1}
+                                                    </strong>
 
-                            {!loadingPosts
-                                && !postError
-                                && posts.length > 0 && (
-                                    <div className="post-selection-list">
-                                        {posts.map(
-                                            (post, index) => {
-                                                const captionExpanded =
-                                                    Boolean(
-                                                        expandedPostIds[
-                                                            post.id
-                                                        ]
-                                                    )
+                                                    <p className="post-caption-preview">
+                                                        {post.text || "No caption/message"}
+                                                    </p>
+                                                </div>
 
-                                                return (
-                                                    <div
-                                                        key={post.id}
-                                                        className="post-selection-card"
+                                                <div className="post-selection-actions">
+                                                    <button
+                                                        className="choose-post-button post-select-button"
+                                                        onClick={() =>
+                                                            handleSelectPost(
+                                                                post,
+                                                                index,
+                                                            )
+                                                        }
                                                     >
-                                                        <div className="post-selection-main">
-                                                            <button
-                                                                className="post-caption-toggle"
-                                                                onClick={() =>
-                                                                    togglePostCaption(
-                                                                        post.id
-                                                                    )
-                                                                }
-                                                                aria-label={
-                                                                    captionExpanded
-                                                                        ? `Collapse Post ${index + 1} caption`
-                                                                        : `Expand Post ${index + 1} caption`
-                                                                }
-                                                            >
-                                                                <strong className="post-number">
-                                                                    Post {index + 1}
-                                                                </strong>
+                                                        Select
+                                                    </button>
 
-                                                                {captionExpanded ? (
-                                                                    <ChevronUp size={17} />
-                                                                ) : (
-                                                                    <ChevronDown size={17} />
-                                                                )}
-                                                            </button>
-
-                                                            <p
-                                                                className={
-                                                                    captionExpanded
-                                                                        ? "post-caption-preview expanded"
-                                                                        : "post-caption-preview"
-                                                                }
-                                                            >
-                                                                {
-                                                                    post.text
-                                                                    || "No caption/message"
-                                                                }
-                                                            </p>
-                                                        </div>
-
+                                                    {pendingAlert && (
                                                         <button
-                                                            className="choose-post-button post-select-button"
+                                                            className="post-pending-button"
                                                             onClick={() =>
                                                                 handleSelectPost(
                                                                     post,
@@ -683,56 +572,41 @@ function DataCollection() {
                                                                 )
                                                             }
                                                         >
-                                                            Select
+                                                            {pendingAlert.new_items} new item{
+                                                                pendingAlert.new_items === 1
+                                                                    ? ""
+                                                                    : "s"
+                                                            }
                                                         </button>
-                                                    </div>
-                                                )
-                                            }
-                                        )}
-                                    </div>
-                                )}
-
-                            {collectionResult && (
-                                <div className="collection-result-card">
-                                    <CheckCircle2
-                                        size={22}
-                                    />
-
-                                    <div>
-                                        <h3>
-                                            {collectionResult.postLabel}
-                                            {" "}
-                                            collected
-                                        </h3>
-
-                                        <p>
-                                            Comments:
-                                            {" "}
-                                            {collectionResult.comments}
-                                        </p>
-
-                                        <p>
-                                            Replies:
-                                            {" "}
-                                            {collectionResult.replies}
-                                        </p>
-
-                                        <p>
-                                            Items processed:
-                                            {" "}
-                                            {
-                                                collectionResult
-                                                    .items_processed
-                                            }
-                                        </p>
-                                    </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
-                        </div>
-                    )}
+
+                        {collectionResult && (
+                            <div className="collection-result-card">
+                                <CheckCircle2 size={22} />
+                                <div>
+                                    <h3>
+                                        {collectionResult.postLabel}
+                                        {" "}
+                                        collected and analyzed
+                                    </h3>
+                                    <p>
+                                        Total items: {collectionResult.items_processed}
+                                    </p>
+                                    <p>
+                                        Newly analyzed: {collectionResult.analyzed_items}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </section>
             )}
-
 
             {selectedPost && (
                 <div className="collection-confirm-overlay">
@@ -750,12 +624,8 @@ function DataCollection() {
                                 />
 
                                 <div>
-                                    <span>
-                                        {platformName}
-                                    </span>
-                                    <h2>
-                                        {selectedPost.displayLabel}
-                                    </h2>
+                                    <span>{platformName}</span>
+                                    <h2>{selectedPost.displayLabel}</h2>
                                 </div>
                             </div>
                         </div>
@@ -764,81 +634,53 @@ function DataCollection() {
                             <span className="confirm-section-label">
                                 Caption
                             </span>
-
                             <p>
-                                {
-                                    selectedPost.text
-                                    || "No caption/message"
-                                }
+                                {selectedPost.text || "No caption/message"}
                             </p>
                         </div>
 
-                        <div className="confirm-details-grid">
+                        <div className="confirm-details-grid confirm-details-grid-two">
                             <div className="confirm-detail-card">
-                                <span>
-                                    Comments
-                                </span>
+                                <span>Total items</span>
                                 <strong>
                                     {loadingPreview
                                         ? "..."
-                                        : (selectedPost.preview?.comments
+                                        : (selectedPost.preview?.total_items
                                             ?? "—")}
                                 </strong>
+                                <small>
+                                    Current comments + replies
+                                </small>
                             </div>
 
-                            <div className="confirm-detail-card">
-                                <span>
-                                    Replies
-                                </span>
+                            <div className="confirm-detail-card new-items-card">
+                                <span>New items</span>
                                 <strong>
                                     {loadingPreview
                                         ? "..."
-                                        : (selectedPost.preview?.replies
+                                        : (selectedPost.preview?.new_items
                                             ?? "—")}
                                 </strong>
-                            </div>
-
-                            <div className="confirm-detail-card">
-                                <span>
-                                    Total items
-                                </span>
-                                <strong>
-                                    {loadingPreview
-                                        ? "..."
-                                        : (selectedPost.preview?.items_total
-                                            ?? "—")}
-                                </strong>
+                                <small>
+                                    Not collected or analyzed yet
+                                </small>
                             </div>
                         </div>
 
                         <div className="confirm-post-meta">
                             <div>
-                                <span>
-                                    Post ID
-                                </span>
+                                <span>Post ID</span>
+                                <strong>{selectedPost.id}</strong>
+                            </div>
+                            <div>
+                                <span>Published</span>
                                 <strong>
-                                    {selectedPost.id}
+                                    {formatPostDate(selectedPostDate)}
                                 </strong>
                             </div>
-
                             <div>
-                                <span>
-                                    Published
-                                </span>
-                                <strong>
-                                    {formatPostDate(
-                                        selectedPostDate
-                                    )}
-                                </strong>
-                            </div>
-
-                            <div>
-                                <span>
-                                    Type
-                                </span>
-                                <strong>
-                                    {selectedPostType}
-                                </strong>
+                                <span>Type</span>
+                                <strong>{selectedPostType}</strong>
                             </div>
                         </div>
 
@@ -861,8 +703,8 @@ function DataCollection() {
                         )}
 
                         <p className="confirm-note">
-                            Comments and replies will be collected,
-                            stored, and analyzed automatically.
+                            New content will be stored and AI analysis
+                            will finish before this collection is marked complete.
                         </p>
 
                         {collectionError && (
@@ -885,16 +727,11 @@ function DataCollection() {
 
                             <button
                                 className="choose-post-button"
-                                onClick={
-                                    collectSelectedPost
-                                }
-                                disabled={
-                                    collecting
-                                    || loadingPreview
-                                }
+                                onClick={collectSelectedPost}
+                                disabled={collecting || loadingPreview}
                             >
                                 {collecting
-                                    ? "Collecting..."
+                                    ? "Collecting & analyzing..."
                                     : loadingPreview
                                         ? "Loading details..."
                                         : "Collect & Analyze"}
@@ -903,16 +740,6 @@ function DataCollection() {
                     </div>
                 </div>
             )}
-
-
-            <div className="collection-footer-note">
-                <Clock3 size={18} />
-
-                <span>
-                    Collection runs only after
-                    you select and confirm a post.
-                </span>
-            </div>
         </div>
     )
 }
