@@ -126,6 +126,152 @@ def fetch_all_media() -> list[dict[str, Any]]:
 
     return media_items
 
+def fetch_media_page(
+    after: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+
+    url = (
+        f"https://graph.facebook.com/"
+        f"{META_GRAPH_API_VERSION}/"
+        f"{INSTAGRAM_ACCOUNT_ID}/media"
+    )
+
+    params: dict[str, Any] = {
+        "access_token":
+            META_PAGE_ACCESS_TOKEN,
+
+        "fields": (
+            "id,caption,media_type,"
+            "timestamp,permalink"
+        ),
+
+        "limit":
+            limit,
+    }
+
+    if after:
+        params["after"] = after
+
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30,
+    )
+
+    try:
+        payload = response.json()
+
+    except ValueError as exc:
+        raise RuntimeError(
+            "Meta returned a non-JSON response: "
+            f"{response.text}"
+        ) from exc
+
+
+    if not response.ok or "error" in payload:
+        error = payload.get(
+            "error",
+            {}
+        )
+
+        raise RuntimeError(
+            error.get(
+                "message",
+                "Unknown Meta Graph API error",
+            )
+        )
+
+
+    paging = payload.get(
+        "paging",
+        {}
+    )
+
+    cursors = paging.get(
+        "cursors",
+        {}
+    )
+
+
+    next_cursor = None
+
+    if paging.get("next"):
+        next_cursor = cursors.get(
+            "after"
+        )
+
+
+    return {
+        "media":
+            payload.get(
+                "data",
+                []
+            ),
+
+        "next_cursor":
+            next_cursor,
+
+        "has_next":
+            bool(
+                paging.get("next")
+            ),
+    }
+
+def fetch_media_by_id(
+    media_id: str,
+) -> dict[str, Any]:
+
+    url = (
+        f"https://graph.facebook.com/"
+        f"{META_GRAPH_API_VERSION}/"
+        f"{media_id}"
+    )
+
+    params = {
+        "access_token":
+            META_PAGE_ACCESS_TOKEN,
+
+        "fields": (
+            "id,caption,media_type,"
+            "timestamp,permalink"
+        ),
+    }
+
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30,
+    )
+
+    try:
+        payload = response.json()
+
+    except ValueError as exc:
+        raise RuntimeError(
+            "Meta returned a non-JSON response: "
+            f"{response.text}"
+        ) from exc
+
+
+    if not response.ok or "error" in payload:
+        error = payload.get(
+            "error",
+            {}
+        )
+
+        raise RuntimeError(
+            error.get(
+                "message",
+                "Instagram post not found.",
+            )
+        )
+
+
+    return payload
+
 def fetch_all_comments(
     media_id: str,
 ) -> list[dict[str, Any]]:

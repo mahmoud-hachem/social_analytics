@@ -4,29 +4,32 @@ from datetime import timezone
 
 import pymysql
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import BackgroundTasks, HTTPException
+
 
 from topic_insights import (
     get_overview_topic_insights,
     refresh_topic_insights_for_post,
 )
+
 from facebook_collector import (
-    fetch_all_posts as fb_fetch_all_posts,
     fetch_all_comments as fb_fetch_all_comments,
     fetch_comment_replies as fb_fetch_comment_replies,
     normalize_comment as fb_normalize_comment,
     normalize_reply as fb_normalize_reply,
     save_comments as fb_save_comments,
+    fetch_posts_page as fb_fetch_posts_page,
+    fetch_post_by_id as fb_fetch_post_by_id,
 )
 
 from instagram_collector import (
-    fetch_all_media as ig_fetch_all_media,
     fetch_all_comments as ig_fetch_all_comments,
     normalize_comment as ig_normalize_comment,
     normalize_reply as ig_normalize_reply,
     save_comments as ig_save_comments,
+    fetch_media_page as ig_fetch_media_page,
+    fetch_media_by_id as ig_fetch_media_by_id,
 )
 
 from content_analyzer import (
@@ -34,6 +37,7 @@ from content_analyzer import (
     save_analysis,
     get_database_connection as get_analysis_database_connection,
 )
+
 
 load_dotenv()
 
@@ -49,11 +53,29 @@ def require_env(name: str) -> str:
     return value.strip()
 
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = int(os.getenv("DB_PORT", "3306"))
-DB_NAME = require_env("DB_NAME")
-DB_USER = require_env("DB_USER")
-DB_PASSWORD = require_env("DB_PASSWORD")
+DB_HOST = os.getenv(
+    "DB_HOST",
+    "localhost",
+)
+
+DB_PORT = int(
+    os.getenv(
+        "DB_PORT",
+        "3306",
+    )
+)
+
+DB_NAME = require_env(
+    "DB_NAME"
+)
+
+DB_USER = require_env(
+    "DB_USER"
+)
+
+DB_PASSWORD = require_env(
+    "DB_PASSWORD"
+)
 
 
 app = FastAPI(
@@ -85,6 +107,7 @@ def get_database_connection():
         cursorclass=pymysql.cursors.DictCursor,
     )
 
+
 def build_filter_clause(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -102,66 +125,102 @@ def build_filter_clause(
         conditions.append(
             "DATE(c.published_at) >= %(date_from)s"
         )
-        params["date_from"] = date_from
+
+        params[
+            "date_from"
+        ] = date_from
 
     if date_to:
         conditions.append(
             "DATE(c.published_at) <= %(date_to)s"
         )
-        params["date_to"] = date_to
+
+        params[
+            "date_to"
+        ] = date_to
 
     if platform:
         conditions.append(
             "c.platform = %(platform)s"
         )
-        params["platform"] = platform
+
+        params[
+            "platform"
+        ] = platform
 
     if post_topic:
         conditions.append(
             "a.post_topic = %(post_topic)s"
         )
-        params["post_topic"] = post_topic
+
+        params[
+            "post_topic"
+        ] = post_topic
 
     if topic:
         conditions.append(
             "a.topic = %(topic)s"
         )
-        params["topic"] = topic
+
+        params[
+            "topic"
+        ] = topic
 
     if sentiment:
         conditions.append(
             "a.sentiment = %(sentiment)s"
         )
-        params["sentiment"] = sentiment
+
+        params[
+            "sentiment"
+        ] = sentiment
 
     if intent:
         conditions.append(
             "a.intent = %(intent)s"
         )
-        params["intent"] = intent
+
+        params[
+            "intent"
+        ] = intent
 
     if severity:
         conditions.append(
             "a.severity = %(severity)s"
         )
-        params["severity"] = severity
+
+        params[
+            "severity"
+        ] = severity
 
     if conditions:
         where_clause = (
             " WHERE "
-            + " AND ".join(conditions)
+            + " AND ".join(
+                conditions
+            )
         )
+
     else:
         where_clause = ""
 
-    return where_clause, params
+    return (
+        where_clause,
+        params,
+    )
+
 
 @app.get("/")
 def root():
     return {
-        "message": "TouchBoard API is running"
+        "message":
+            "TouchBoard API is running"
     }
 
+
+# =========================================================
+# OVERVIEW
+# =========================================================
 
 @app.get("/api/summary")
 def get_summary(
@@ -174,24 +233,29 @@ def get_summary(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
             sql = f"""
                 SELECT
-                    COUNT(c.id) AS total_content,
+                    COUNT(c.id)
+                        AS total_content,
 
                     SUM(
                         CASE
@@ -230,25 +294,39 @@ def get_summary(
                 params,
             )
 
-            row = cursor.fetchone()
+            row = (
+                cursor.fetchone()
+            )
 
     finally:
         connection.close()
 
     total_content = int(
-        row["total_content"] or 0
+        row[
+            "total_content"
+        ]
+        or 0
     )
 
     negative_count = int(
-        row["negative_count"] or 0
+        row[
+            "negative_count"
+        ]
+        or 0
     )
 
     complaints = int(
-        row["complaints"] or 0
+        row[
+            "complaints"
+        ]
+        or 0
     )
 
     high_severity = int(
-        row["high_severity"] or 0
+        row[
+            "high_severity"
+        ]
+        or 0
     )
 
     if total_content > 0:
@@ -260,15 +338,24 @@ def get_summary(
             * 100,
             1,
         )
+
     else:
         negative_percentage = 0.0
 
     return {
-        "total_content": total_content,
-        "negative_percentage": negative_percentage,
-        "complaints": complaints,
-        "high_severity": high_severity,
+        "total_content":
+            total_content,
+
+        "negative_percentage":
+            negative_percentage,
+
+        "complaints":
+            complaints,
+
+        "high_severity":
+            high_severity,
     }
+
 
 @app.get("/api/sentiment")
 def get_sentiment_distribution(
@@ -281,18 +368,22 @@ def get_sentiment_distribution(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -335,21 +426,32 @@ def get_sentiment_distribution(
                 params,
             )
 
-            row = cursor.fetchone()
+            row = (
+                cursor.fetchone()
+            )
 
     finally:
         connection.close()
 
     positive = int(
-        row["positive"] or 0
+        row[
+            "positive"
+        ]
+        or 0
     )
 
     neutral = int(
-        row["neutral"] or 0
+        row[
+            "neutral"
+        ]
+        or 0
     )
 
     negative = int(
-        row["negative"] or 0
+        row[
+            "negative"
+        ]
+        or 0
     )
 
     total = (
@@ -358,42 +460,65 @@ def get_sentiment_distribution(
         + negative
     )
 
-    def percentage(value):
+    def percentage(
+        value,
+    ):
         if total == 0:
             return 0.0
 
         return round(
-            (value / total) * 100,
+            (
+                value
+                / total
+            )
+            * 100,
             1,
         )
 
     return {
-        "total": total,
+        "total":
+            total,
 
         "sentiments": [
             {
-                "sentiment": "positive",
-                "count": positive,
-                "percentage": percentage(
-                    positive
-                ),
+                "sentiment":
+                    "positive",
+
+                "count":
+                    positive,
+
+                "percentage":
+                    percentage(
+                        positive
+                    ),
             },
             {
-                "sentiment": "neutral",
-                "count": neutral,
-                "percentage": percentage(
-                    neutral
-                ),
+                "sentiment":
+                    "neutral",
+
+                "count":
+                    neutral,
+
+                "percentage":
+                    percentage(
+                        neutral
+                    ),
             },
             {
-                "sentiment": "negative",
-                "count": negative,
-                "percentage": percentage(
-                    negative
-                ),
+                "sentiment":
+                    "negative",
+
+                "count":
+                    negative,
+
+                "percentage":
+                    percentage(
+                        negative
+                    ),
             },
         ],
     }
+
 
 @app.get("/api/topics")
 def get_top_topics(
@@ -406,18 +531,22 @@ def get_top_topics(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -443,7 +572,9 @@ def get_top_topics(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
@@ -451,14 +582,21 @@ def get_top_topics(
     return {
         "topics": [
             {
-                "topic": row["topic"],
-                "count": int(
-                    row["count"] or 0
-                ),
+                "topic":
+                    row["topic"],
+
+                "count":
+                    int(
+                        row[
+                            "count"
+                        ]
+                        or 0
+                    ),
             }
             for row in rows
         ]
     }
+
 
 @app.get("/api/intents")
 def get_intent_distribution(
@@ -471,18 +609,22 @@ def get_intent_distribution(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -508,7 +650,9 @@ def get_intent_distribution(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
@@ -516,14 +660,21 @@ def get_intent_distribution(
     return {
         "intents": [
             {
-                "intent": row["intent"],
-                "count": int(
-                    row["count"] or 0
-                ),
+                "intent":
+                    row["intent"],
+
+                "count":
+                    int(
+                        row[
+                            "count"
+                        ]
+                        or 0
+                    ),
             }
             for row in rows
         ]
     }
+
 
 @app.get("/api/platforms")
 def get_platform_distribution(
@@ -536,18 +687,22 @@ def get_platform_distribution(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -573,13 +728,18 @@ def get_platform_distribution(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
 
     total = sum(
-        int(row["count"] or 0)
+        int(
+            row["count"]
+            or 0
+        )
         for row in rows
     )
 
@@ -587,12 +747,19 @@ def get_platform_distribution(
 
     for row in rows:
         count = int(
-            row["count"] or 0
+            row[
+                "count"
+            ]
+            or 0
         )
 
         percentage = (
             round(
-                (count / total) * 100,
+                (
+                    count
+                    / total
+                )
+                * 100,
                 1,
             )
             if total > 0
@@ -601,18 +768,31 @@ def get_platform_distribution(
 
         platforms.append(
             {
-                "platform": row["platform"],
-                "count": count,
-                "percentage": percentage,
+                "platform":
+                    row[
+                        "platform"
+                    ],
+
+                "count":
+                    count,
+
+                "percentage":
+                    percentage,
             }
         )
 
     return {
-        "total": total,
-        "platforms": platforms,
+        "total":
+            total,
+
+        "platforms":
+            platforms,
     }
 
-@app.get("/api/sentiment-over-time")
+
+@app.get(
+    "/api/sentiment-over-time"
+)
 def get_sentiment_over_time(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -623,26 +803,34 @@ def get_sentiment_over_time(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
             sql = f"""
                 SELECT
-                    DATE(c.published_at) AS date,
+                    DATE(
+                        c.published_at
+                    ) AS date,
 
-                    COUNT(c.id) AS total,
+                    COUNT(
+                        c.id
+                    ) AS total,
 
                     SUM(
                         CASE
@@ -675,9 +863,15 @@ def get_sentiment_over_time(
 
                 {where_clause}
 
-                GROUP BY DATE(c.published_at)
+                GROUP BY
+                    DATE(
+                        c.published_at
+                    )
 
-                ORDER BY DATE(c.published_at)
+                ORDER BY
+                    DATE(
+                        c.published_at
+                    )
             """
 
             cursor.execute(
@@ -685,11 +879,12 @@ def get_sentiment_over_time(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
-
 
     data = []
 
@@ -697,33 +892,54 @@ def get_sentiment_over_time(
         data.append(
             {
                 "date": (
-                    row["date"].isoformat()
-                    if row["date"]
+                    row[
+                        "date"
+                    ].isoformat()
+                    if row[
+                        "date"
+                    ]
                     else None
                 ),
 
-                "total": int(
-                    row["total"] or 0
-                ),
+                "total":
+                    int(
+                        row[
+                            "total"
+                        ]
+                        or 0
+                    ),
 
-                "positive": int(
-                    row["positive"] or 0
-                ),
+                "positive":
+                    int(
+                        row[
+                            "positive"
+                        ]
+                        or 0
+                    ),
 
-                "neutral": int(
-                    row["neutral"] or 0
-                ),
+                "neutral":
+                    int(
+                        row[
+                            "neutral"
+                        ]
+                        or 0
+                    ),
 
-                "negative": int(
-                    row["negative"] or 0
-                ),
+                "negative":
+                    int(
+                        row[
+                            "negative"
+                        ]
+                        or 0
+                    ),
             }
         )
 
-
     return {
-        "data": data
+        "data":
+            data
     }
+
 
 @app.get("/api/high-severity")
 def get_high_severity(
@@ -736,29 +952,32 @@ def get_high_severity(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
-
 
     if where_clause:
         where_clause += (
             " AND a.severity = 'high'"
         )
+
     else:
         where_clause = (
             " WHERE a.severity = 'high'"
         )
 
-
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -783,7 +1002,8 @@ def get_high_severity(
 
                 {where_clause}
 
-                ORDER BY c.published_at DESC
+                ORDER BY
+                    c.published_at DESC
 
                 LIMIT 10
             """
@@ -793,31 +1013,47 @@ def get_high_severity(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
-
 
     issues = []
 
     for row in rows:
         issues.append(
             {
-                "id": row["id"],
+                "id":
+                    row["id"],
 
                 "platform":
-                    row["platform"],
+                    row[
+                        "platform"
+                    ],
 
                 "content_type":
-                    row["content_type"],
+                    row[
+                        "content_type"
+                    ],
 
                 "content_text":
-                    row["content_text"],
+                    row[
+                        "content_text"
+                    ],
 
                 "published_at": (
-                    row["published_at"].isoformat()
-                    if row["published_at"]
+                    row[
+                        "published_at"
+                    ]
+                    .replace(
+                        tzinfo=timezone.utc
+                    )
+                    .isoformat()
+                    if row[
+                        "published_at"
+                    ]
                     else None
                 ),
 
@@ -828,24 +1064,34 @@ def get_high_severity(
                     row["intent"],
 
                 "sentiment":
-                    row["sentiment"],
+                    row[
+                        "sentiment"
+                    ],
 
                 "severity":
-                    row["severity"],
+                    row[
+                        "severity"
+                    ],
 
-                "confidence": float(
-                    row["confidence"] or 0
-                ),
+                "confidence":
+                    float(
+                        row[
+                            "confidence"
+                        ]
+                        or 0
+                    ),
             }
         )
 
-
     return {
-        "issues": issues
+        "issues":
+            issues
     }
 
 
-@app.get("/api/recent-analysis")
+@app.get(
+    "/api/recent-analysis"
+)
 def get_recent_analysis(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -856,19 +1102,22 @@ def get_recent_analysis(
     intent: str | None = None,
     severity: str | None = None,
 ):
-    where_clause, params = build_filter_clause(
-        date_from=date_from,
-        date_to=date_to,
-        platform=platform,
-        post_topic=post_topic,
-        topic=topic,
-        sentiment=sentiment,
-        intent=intent,
-        severity=severity,
+    where_clause, params = (
+        build_filter_clause(
+            date_from=date_from,
+            date_to=date_to,
+            platform=platform,
+            post_topic=post_topic,
+            topic=topic,
+            sentiment=sentiment,
+            intent=intent,
+            severity=severity,
+        )
     )
 
-
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -895,7 +1144,8 @@ def get_recent_analysis(
 
                 {where_clause}
 
-                ORDER BY c.published_at DESC
+                ORDER BY
+                    c.published_at DESC
 
                 LIMIT 12
             """
@@ -905,11 +1155,12 @@ def get_recent_analysis(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
-
 
     content = []
 
@@ -920,25 +1171,43 @@ def get_recent_analysis(
                     row["id"],
 
                 "platform":
-                    row["platform"],
+                    row[
+                        "platform"
+                    ],
 
                 "content_type":
-                    row["content_type"],
+                    row[
+                        "content_type"
+                    ],
 
                 "content_text":
-                    row["content_text"],
+                    row[
+                        "content_text"
+                    ],
 
                 "source_post_text":
-                    row["source_post_text"],
+                    row[
+                        "source_post_text"
+                    ],
 
                 "published_at": (
-                    row["published_at"].isoformat()
-                    if row["published_at"]
+                    row[
+                        "published_at"
+                    ]
+                    .replace(
+                        tzinfo=timezone.utc
+                    )
+                    .isoformat()
+                    if row[
+                        "published_at"
+                    ]
                     else None
                 ),
 
                 "post_topic":
-                    row["post_topic"],
+                    row[
+                        "post_topic"
+                    ],
 
                 "topic":
                     row["topic"],
@@ -947,21 +1216,34 @@ def get_recent_analysis(
                     row["intent"],
 
                 "sentiment":
-                    row["sentiment"],
+                    row[
+                        "sentiment"
+                    ],
 
                 "severity":
-                    row["severity"],
+                    row[
+                        "severity"
+                    ],
 
-                "confidence": float(
-                    row["confidence"] or 0
-                ),
+                "confidence":
+                    float(
+                        row[
+                            "confidence"
+                        ]
+                        or 0
+                    ),
             }
         )
 
-
     return {
-        "content": content
+        "content":
+            content
     }
+
+
+# =========================================================
+# CONTENT PAGE
+# =========================================================
 
 @app.get("/api/comments")
 def get_comments(
@@ -981,93 +1263,105 @@ def get_comments(
     conditions = []
     params = {}
 
-
     if date_from:
         conditions.append(
             "DATE(c.published_at) >= %(date_from)s"
         )
 
-        params["date_from"] = date_from
-
+        params[
+            "date_from"
+        ] = date_from
 
     if date_to:
         conditions.append(
             "DATE(c.published_at) <= %(date_to)s"
         )
 
-        params["date_to"] = date_to
-
+        params[
+            "date_to"
+        ] = date_to
 
     if platform:
         conditions.append(
             "c.platform = %(platform)s"
         )
 
-        params["platform"] = platform
-
+        params[
+            "platform"
+        ] = platform
 
     if content_type:
         conditions.append(
             "c.content_type = %(content_type)s"
         )
 
-        params["content_type"] = content_type
-
+        params[
+            "content_type"
+        ] = content_type
 
     if post_topic:
         conditions.append(
             "a.post_topic = %(post_topic)s"
         )
 
-        params["post_topic"] = post_topic
-
+        params[
+            "post_topic"
+        ] = post_topic
 
     if topic:
         conditions.append(
             "a.topic = %(topic)s"
         )
 
-        params["topic"] = topic
-
+        params[
+            "topic"
+        ] = topic
 
     if sentiment:
         conditions.append(
             "a.sentiment = %(sentiment)s"
         )
 
-        params["sentiment"] = sentiment
-
+        params[
+            "sentiment"
+        ] = sentiment
 
     if intent:
         conditions.append(
             "a.intent = %(intent)s"
         )
 
-        params["intent"] = intent
-
+        params[
+            "intent"
+        ] = intent
 
     if severity:
         conditions.append(
             "a.severity = %(severity)s"
         )
 
-        params["severity"] = severity
-
+        params[
+            "severity"
+        ] = severity
 
     if search:
         conditions.append(
             """
             (
-                c.content_text LIKE %(search)s
-                OR c.source_post_text LIKE %(search)s
+                c.content_text
+                    LIKE %(search)s
+
+                OR c.source_post_text
+                    LIKE %(search)s
             )
             """
         )
 
-        params["search"] = (
+        params[
+            "search"
+        ] = (
             f"%{search}%"
         )
-
 
     if conditions:
         where_clause = (
@@ -1076,33 +1370,29 @@ def get_comments(
                 conditions
             )
         )
+
     else:
         where_clause = ""
-
 
     if page < 1:
         page = 1
 
-
     if page_size < 1:
         page_size = 20
 
-
     if page_size > 100:
         page_size = 100
-
 
     offset = (
         page - 1
     ) * page_size
 
-
-    connection = get_database_connection()
-
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
-
             count_sql = f"""
                 SELECT
                     COUNT(*) AS total
@@ -1115,21 +1405,21 @@ def get_comments(
                 {where_clause}
             """
 
-
             cursor.execute(
                 count_sql,
                 params,
             )
 
-
-            count_row = cursor.fetchone()
-
-
-            total = int(
-                count_row["total"]
-                or 0
+            count_row = (
+                cursor.fetchone()
             )
 
+            total = int(
+                count_row[
+                    "total"
+                ]
+                or 0
+            )
 
             data_sql = f"""
                 SELECT
@@ -1167,29 +1457,29 @@ def get_comments(
                 OFFSET %(offset)s
             """
 
-
             data_params = {
                 **params,
-                "page_size": page_size,
-                "offset": offset,
-            }
 
+                "page_size":
+                    page_size,
+
+                "offset":
+                    offset,
+            }
 
             cursor.execute(
                 data_sql,
                 data_params,
             )
 
-
-            rows = cursor.fetchall()
-
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
 
-
     comments = []
-
 
     for row in rows:
         comments.append(
@@ -1198,19 +1488,29 @@ def get_comments(
                     row["id"],
 
                 "external_id":
-                    row["external_id"],
+                    row[
+                        "external_id"
+                    ],
 
                 "platform":
-                    row["platform"],
+                    row[
+                        "platform"
+                    ],
 
                 "content_type":
-                    row["content_type"],
+                    row[
+                        "content_type"
+                    ],
 
                 "source_post_id":
-                    row["source_post_id"],
+                    row[
+                        "source_post_id"
+                    ],
 
                 "source_post_text":
-                    row["source_post_text"],
+                    row[
+                        "source_post_text"
+                    ],
 
                 "parent_external_id":
                     row[
@@ -1218,15 +1518,23 @@ def get_comments(
                     ],
 
                 "content_text":
-                    row["content_text"],
+                    row[
+                        "content_text"
+                    ],
 
                 "published_at": (
-    row["published_at"]
-    .replace(tzinfo=timezone.utc)
-    .isoformat()
-    if row["published_at"]
-    else None
-),
+                    row[
+                        "published_at"
+                    ]
+                    .replace(
+                        tzinfo=timezone.utc
+                    )
+                    .isoformat()
+                    if row[
+                        "published_at"
+                    ]
+                    else None
+                ),
 
                 "likes_count":
                     int(
@@ -1237,22 +1545,34 @@ def get_comments(
                     ),
 
                 "language":
-                    row["language"],
+                    row[
+                        "language"
+                    ],
 
                 "post_topic":
-                    row["post_topic"],
+                    row[
+                        "post_topic"
+                    ],
 
                 "sentiment":
-                    row["sentiment"],
+                    row[
+                        "sentiment"
+                    ],
 
                 "topic":
-                    row["topic"],
+                    row[
+                        "topic"
+                    ],
 
                 "intent":
-                    row["intent"],
+                    row[
+                        "intent"
+                    ],
 
                 "severity":
-                    row["severity"],
+                    row[
+                        "severity"
+                    ],
 
                 "confidence":
                     float(
@@ -1264,7 +1584,6 @@ def get_comments(
             }
         )
 
-
     total_pages = (
         (
             total
@@ -1274,9 +1593,9 @@ def get_comments(
         // page_size
     )
 
-
     return {
-        "comments": comments,
+        "comments":
+            comments,
 
         "pagination": {
             "page":
@@ -1293,7 +1612,14 @@ def get_comments(
         },
     }
 
-@app.get("/api/analytics/volume-over-time")
+
+# =========================================================
+# ANALYTICS
+# =========================================================
+
+@app.get(
+    "/api/analytics/volume-over-time"
+)
 def get_volume_over_time(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -1306,35 +1632,52 @@ def get_volume_over_time(
         conditions.append(
             "DATE(c.published_at) >= %(date_from)s"
         )
-        params["date_from"] = date_from
+
+        params[
+            "date_from"
+        ] = date_from
 
     if date_to:
         conditions.append(
             "DATE(c.published_at) <= %(date_to)s"
         )
-        params["date_to"] = date_to
+
+        params[
+            "date_to"
+        ] = date_to
 
     if platform:
         conditions.append(
             "c.platform = %(platform)s"
         )
-        params["platform"] = platform
+
+        params[
+            "platform"
+        ] = platform
 
     if conditions:
         where_clause = (
             " WHERE "
-            + " AND ".join(conditions)
+            + " AND ".join(
+                conditions
+            )
         )
+
     else:
         where_clause = ""
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
             sql = f"""
                 SELECT
-                    DATE(c.published_at) AS date,
+                    DATE(
+                        c.published_at
+                    ) AS date,
+
                     COUNT(*) AS count
 
                 FROM content AS c
@@ -1344,9 +1687,15 @@ def get_volume_over_time(
 
                 {where_clause}
 
-                GROUP BY DATE(c.published_at)
+                GROUP BY
+                    DATE(
+                        c.published_at
+                    )
 
-                ORDER BY DATE(c.published_at)
+                ORDER BY
+                    DATE(
+                        c.published_at
+                    )
             """
 
             cursor.execute(
@@ -1354,7 +1703,9 @@ def get_volume_over_time(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
@@ -1363,20 +1714,31 @@ def get_volume_over_time(
         "data": [
             {
                 "date": (
-                    row["date"].isoformat()
-                    if row["date"]
+                    row[
+                        "date"
+                    ].isoformat()
+                    if row[
+                        "date"
+                    ]
                     else None
                 ),
-                "count": int(
-                    row["count"] or 0
-                ),
+
+                "count":
+                    int(
+                        row[
+                            "count"
+                        ]
+                        or 0
+                    ),
             }
             for row in rows
         ]
     }
 
 
-@app.get("/api/analytics/issues-over-time")
+@app.get(
+    "/api/analytics/issues-over-time"
+)
 def get_issues_over_time(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -1389,35 +1751,51 @@ def get_issues_over_time(
         conditions.append(
             "DATE(c.published_at) >= %(date_from)s"
         )
-        params["date_from"] = date_from
+
+        params[
+            "date_from"
+        ] = date_from
 
     if date_to:
         conditions.append(
             "DATE(c.published_at) <= %(date_to)s"
         )
-        params["date_to"] = date_to
+
+        params[
+            "date_to"
+        ] = date_to
 
     if platform:
         conditions.append(
             "c.platform = %(platform)s"
         )
-        params["platform"] = platform
+
+        params[
+            "platform"
+        ] = platform
 
     if conditions:
         where_clause = (
             " WHERE "
-            + " AND ".join(conditions)
+            + " AND ".join(
+                conditions
+            )
         )
+
     else:
         where_clause = ""
 
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
             sql = f"""
                 SELECT
-                    DATE(c.published_at) AS date,
+                    DATE(
+                        c.published_at
+                    ) AS date,
 
                     SUM(
                         CASE
@@ -1442,9 +1820,15 @@ def get_issues_over_time(
 
                 {where_clause}
 
-                GROUP BY DATE(c.published_at)
+                GROUP BY
+                    DATE(
+                        c.published_at
+                    )
 
-                ORDER BY DATE(c.published_at)
+                ORDER BY
+                    DATE(
+                        c.published_at
+                    )
             """
 
             cursor.execute(
@@ -1452,7 +1836,9 @@ def get_issues_over_time(
                 params,
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
@@ -1461,25 +1847,43 @@ def get_issues_over_time(
         "data": [
             {
                 "date": (
-                    row["date"].isoformat()
-                    if row["date"]
+                    row[
+                        "date"
+                    ].isoformat()
+                    if row[
+                        "date"
+                    ]
                     else None
                 ),
-                "complaints": int(
-                    row["complaints"] or 0
-                ),
-                "high_severity": int(
-                    row["high_severity"] or 0
-                ),
+
+                "complaints":
+                    int(
+                        row[
+                            "complaints"
+                        ]
+                        or 0
+                    ),
+
+                "high_severity":
+                    int(
+                        row[
+                            "high_severity"
+                        ]
+                        or 0
+                    ),
             }
             for row in rows
         ]
     }
 
 
-@app.get("/api/analytics/platform-comparison")
+@app.get(
+    "/api/analytics/platform-comparison"
+)
 def get_platform_comparison():
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1488,7 +1892,8 @@ def get_platform_comparison():
                 SELECT
                     c.platform,
 
-                    COUNT(*) AS total_content,
+                    COUNT(*)
+                        AS total_content,
 
                     SUM(
                         CASE
@@ -1519,13 +1924,17 @@ def get_platform_comparison():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                GROUP BY c.platform
+                GROUP BY
+                    c.platform
 
-                ORDER BY c.platform
+                ORDER BY
+                    c.platform
                 """
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
@@ -1534,11 +1943,17 @@ def get_platform_comparison():
 
     for row in rows:
         total = int(
-            row["total_content"] or 0
+            row[
+                "total_content"
+            ]
+            or 0
         )
 
         negative_count = int(
-            row["negative_count"] or 0
+            row[
+                "negative_count"
+            ]
+            or 0
         )
 
         if total > 0:
@@ -1550,13 +1965,16 @@ def get_platform_comparison():
                 * 100,
                 1,
             )
+
         else:
             negative_percentage = 0.0
 
         platforms.append(
             {
                 "platform":
-                    row["platform"],
+                    row[
+                        "platform"
+                    ],
 
                 "total_content":
                     total,
@@ -1566,25 +1984,35 @@ def get_platform_comparison():
 
                 "complaints":
                     int(
-                        row["complaints"]
+                        row[
+                            "complaints"
+                        ]
                         or 0
                     ),
 
                 "high_severity":
                     int(
-                        row["high_severity"]
+                        row[
+                            "high_severity"
+                        ]
                         or 0
                     ),
             }
         )
 
     return {
-        "platforms": platforms
+        "platforms":
+            platforms
     }
 
-@app.get("/api/analytics/topic-distribution")
+
+@app.get(
+    "/api/analytics/topic-distribution"
+)
 def get_topic_distribution():
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1599,34 +2027,48 @@ def get_topic_distribution():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                GROUP BY a.topic
+                GROUP BY
+                    a.topic
 
-                ORDER BY count DESC
+                ORDER BY
+                    count DESC
                 """
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
 
-
     total = sum(
-        int(row["count"] or 0)
+        int(
+            row[
+                "count"
+            ]
+            or 0
+        )
         for row in rows
     )
-
 
     topics = []
 
     for row in rows:
         count = int(
-            row["count"] or 0
+            row[
+                "count"
+            ]
+            or 0
         )
 
         percentage = (
             round(
-                (count / total) * 100,
+                (
+                    count
+                    / total
+                )
+                * 100,
                 1,
             )
             if total > 0
@@ -1635,21 +2077,35 @@ def get_topic_distribution():
 
         topics.append(
             {
-                "topic": row["topic"],
-                "count": count,
-                "percentage": percentage,
+                "topic":
+                    row[
+                        "topic"
+                    ],
+
+                "count":
+                    count,
+
+                "percentage":
+                    percentage,
             }
         )
 
-
     return {
-        "total": total,
-        "topics": topics,
+        "total":
+            total,
+
+        "topics":
+            topics,
     }
 
-@app.get("/api/analytics/topic-severity")
+
+@app.get(
+    "/api/analytics/topic-severity"
+)
 def get_topic_severity():
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1687,7 +2143,8 @@ def get_topic_severity():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                GROUP BY a.topic
+                GROUP BY
+                    a.topic
 
                 ORDER BY
                     high_count DESC,
@@ -1696,11 +2153,12 @@ def get_topic_severity():
                 """
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
-
 
     topics = []
 
@@ -1708,36 +2166,49 @@ def get_topic_severity():
         topics.append(
             {
                 "topic":
-                    row["topic"],
+                    row[
+                        "topic"
+                    ],
 
                 "low":
                     int(
-                        row["low_count"]
+                        row[
+                            "low_count"
+                        ]
                         or 0
                     ),
 
                 "medium":
                     int(
-                        row["medium_count"]
+                        row[
+                            "medium_count"
+                        ]
                         or 0
                     ),
 
                 "high":
                     int(
-                        row["high_count"]
+                        row[
+                            "high_count"
+                        ]
                         or 0
                     ),
             }
         )
 
-
     return {
-        "topics": topics
+        "topics":
+            topics
     }
 
-@app.get("/api/analytics/engagement-by-platform")
+
+@app.get(
+    "/api/analytics/engagement-by-platform"
+)
 def get_engagement_by_platform():
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1745,39 +2216,47 @@ def get_engagement_by_platform():
                 """
                 SELECT
                     c.platform,
-                    COUNT(*) AS interaction_count
+
+                    COUNT(*)
+                        AS interaction_count
 
                 FROM content AS c
 
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                GROUP BY c.platform
+                GROUP BY
+                    c.platform
 
-                ORDER BY interaction_count DESC
+                ORDER BY
+                    interaction_count DESC
                 """
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
 
-
     total = sum(
         int(
-            row["interaction_count"]
+            row[
+                "interaction_count"
+            ]
             or 0
         )
         for row in rows
     )
 
-
     platforms = []
 
     for row in rows:
         count = int(
-            row["interaction_count"]
+            row[
+                "interaction_count"
+            ]
             or 0
         )
 
@@ -1797,7 +2276,9 @@ def get_engagement_by_platform():
         platforms.append(
             {
                 "platform":
-                    row["platform"],
+                    row[
+                        "platform"
+                    ],
 
                 "count":
                     count,
@@ -1807,15 +2288,22 @@ def get_engagement_by_platform():
             }
         )
 
-
     return {
-        "total": total,
-        "platforms": platforms,
+        "total":
+            total,
+
+        "platforms":
+            platforms,
     }
 
-@app.get("/api/analytics/topics-to-work-on")
+
+@app.get(
+    "/api/analytics/topics-to-work-on"
+)
 def get_topics_to_work_on():
-    connection = get_database_connection()
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1845,7 +2333,8 @@ def get_topics_to_work_on():
                 JOIN content_analysis AS a
                     ON a.content_id = c.id
 
-                GROUP BY a.topic
+                GROUP BY
+                    a.topic
 
                 HAVING
                     complaints > 0
@@ -1862,22 +2351,27 @@ def get_topics_to_work_on():
                 """
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
-
 
     topics = []
 
     for row in rows:
         complaints = int(
-            row["complaints"]
+            row[
+                "complaints"
+            ]
             or 0
         )
 
         high_severity = int(
-            row["high_severity"]
+            row[
+                "high_severity"
+            ]
             or 0
         )
 
@@ -1888,7 +2382,6 @@ def get_topics_to_work_on():
                 * 2
             )
         )
-
 
         if priority_score >= 10:
             priority = "critical"
@@ -1902,11 +2395,12 @@ def get_topics_to_work_on():
         else:
             priority = "low"
 
-
         topics.append(
             {
                 "topic":
-                    row["topic"],
+                    row[
+                        "topic"
+                    ],
 
                 "complaints":
                     complaints,
@@ -1922,65 +2416,183 @@ def get_topics_to_work_on():
             }
         )
 
-
     return {
         "topics":
             topics[:6]
     }
 
-@app.get("/api/collection/facebook/posts")
-def get_facebook_posts():
-    posts = fb_fetch_all_posts()
+
+# =========================================================
+# DATA COLLECTION - POST PAGINATION
+# =========================================================
+
+@app.get(
+    "/api/collection/facebook/posts"
+)
+def get_facebook_posts(
+    after: str | None = None,
+):
+    try:
+        result = (
+            fb_fetch_posts_page(
+                after=after,
+                limit=10,
+            )
+        )
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
+
+    posts = (
+        result[
+            "posts"
+        ]
+    )
 
     return {
-        "platform": "facebook",
+        "platform":
+            "facebook",
+
         "posts": [
             {
-                "id": str(post.get("id", "")),
-                "text": str(
-                    post.get("message", "")
-                ).strip(),
-                "created_time": post.get(
-                    "created_time"
-                ),
+                "id":
+                    str(
+                        post.get(
+                            "id",
+                            "",
+                        )
+                    ),
+
+                "text":
+                    str(
+                        post.get(
+                            "message",
+                            "",
+                        )
+                    ).strip(),
+
+                "created_time":
+                    post.get(
+                        "created_time"
+                    ),
+
+                "permalink":
+                    post.get(
+                        "permalink_url"
+                    ),
             }
             for post in posts
         ],
+
+        "pagination": {
+            "has_next":
+                result[
+                    "has_next"
+                ],
+
+            "next_cursor":
+                result[
+                    "next_cursor"
+                ],
+        },
     }
 
 
-@app.get("/api/collection/instagram/posts")
-def get_instagram_posts():
-    media_items = ig_fetch_all_media()
+@app.get(
+    "/api/collection/instagram/posts"
+)
+def get_instagram_posts(
+    after: str | None = None,
+):
+    try:
+        result = (
+            ig_fetch_media_page(
+                after=after,
+                limit=10,
+            )
+        )
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
+
+    media_items = (
+        result[
+            "media"
+        ]
+    )
 
     return {
-        "platform": "instagram",
+        "platform":
+            "instagram",
+
         "posts": [
             {
-                "id": str(media.get("id", "")),
-                "text": str(
-                    media.get("caption", "")
-                ).strip(),
-                "media_type": media.get(
-                    "media_type"
-                ),
-                "timestamp": media.get(
-                    "timestamp"
-                ),
-                "permalink": media.get(
-                    "permalink"
-                ),
+                "id":
+                    str(
+                        media.get(
+                            "id",
+                            "",
+                        )
+                    ),
+
+                "text":
+                    str(
+                        media.get(
+                            "caption",
+                            "",
+                        )
+                    ).strip(),
+
+                "media_type":
+                    media.get(
+                        "media_type"
+                    ),
+
+                "timestamp":
+                    media.get(
+                        "timestamp"
+                    ),
+
+                "permalink":
+                    media.get(
+                        "permalink"
+                    ),
             }
             for media in media_items
         ],
+
+        "pagination": {
+            "has_next":
+                result[
+                    "has_next"
+                ],
+
+            "next_cursor":
+                result[
+                    "next_cursor"
+                ],
+        },
     }
+
+
+# =========================================================
+# AI ANALYSIS FOR SELECTED POST
+# =========================================================
 
 def analyze_selected_post(
     platform: str,
     source_post_id: str,
 ) -> int:
 
-    connection = get_analysis_database_connection()
+    connection = (
+        get_analysis_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
@@ -1990,7 +2602,8 @@ def analyze_selected_post(
                     c.id,
                     c.content_text,
                     c.source_post_text,
-                    parent.content_text AS parent_text
+                    parent.content_text
+                        AS parent_text
 
                 FROM content AS c
 
@@ -1999,7 +2612,8 @@ def analyze_selected_post(
 
                 LEFT JOIN content AS parent
                     ON parent.platform = c.platform
-                    AND parent.external_id = c.parent_external_id
+                    AND parent.external_id =
+                        c.parent_external_id
 
                 WHERE
                     c.platform = %s
@@ -2014,68 +2628,95 @@ def analyze_selected_post(
                 ),
             )
 
-            rows = cursor.fetchall()
+            rows = (
+                cursor.fetchall()
+            )
 
     finally:
         connection.close()
 
-
     print(
-        f"Starting background analysis for "
-        f"{platform} post {source_post_id}. "
+        f"Starting analysis for "
+        f"{platform} post "
+        f"{source_post_id}. "
         f"{len(rows)} items need analysis."
     )
 
-
     successful = 0
 
-    for index, row in enumerate(rows):
-
+    for index, row in enumerate(
+        rows
+    ):
         try:
-            analysis = analyze_text_with_gemini(
-                text=row["content_text"],
-                source_post_text=(
-                    row["source_post_text"] or ""
-                ),
-                parent_text=row["parent_text"],
+            analysis = (
+                analyze_text_with_gemini(
+                    text=row[
+                        "content_text"
+                    ],
+
+                    source_post_text=(
+                        row[
+                            "source_post_text"
+                        ]
+                        or ""
+                    ),
+
+                    parent_text=row[
+                        "parent_text"
+                    ],
+                )
             )
 
             save_analysis(
-                row["id"],
+                row[
+                    "id"
+                ],
                 analysis,
             )
 
             successful += 1
 
             print(
-                f"Analyzed content {row['id']}."
+                f"Analyzed content "
+                f"{row['id']}."
             )
 
         except Exception as exc:
             print(
-                f"Failed analysis for "
-                f"content {row['id']}: {exc}"
+                f"Failed analysis "
+                f"for content "
+                f"{row['id']}: "
+                f"{exc}"
             )
 
-        if index < len(rows) - 1:
-            time.sleep(13)
-
+        if (
+            index
+            < len(rows) - 1
+        ):
+            time.sleep(
+                13
+            )
 
     print(
         f"Finished analysis for "
-        f"{platform} post {source_post_id}."
+        f"{platform} post "
+        f"{source_post_id}. "
+        f"{successful} successful."
     )
 
     return successful
 
+
 def analyze_post_and_refresh_insights(
     platform: str,
     source_post_id: str,
-) -> None:
+) -> int:
 
-    analyze_selected_post(
-        platform,
-        source_post_id,
+    analyzed_items = (
+        analyze_selected_post(
+            platform,
+            source_post_id,
+        )
     )
 
     try:
@@ -2086,35 +2727,39 @@ def analyze_post_and_refresh_insights(
 
     except Exception as exc:
         print(
-            "Topic insight generation failed "
-            f"for {platform} "
-            f"post {source_post_id}: "
+            "Topic insight generation "
+            "failed for "
+            f"{platform} post "
+            f"{source_post_id}: "
             f"{exc}"
         )
+
+    return analyzed_items
+
+
+# =========================================================
+# COLLECT FACEBOOK POST
+# =========================================================
+
 @app.post(
-    "/api/collection/facebook/posts/{post_id}/collect"
+    "/api/collection/facebook/"
+    "posts/{post_id}/collect"
 )
 def collect_facebook_post(
     post_id: str,
 ):
-
-    posts = fb_fetch_all_posts()
-
-    selected_post = next(
-        (
-            post
-            for post in posts
-            if str(post.get("id")) == post_id
-        ),
-        None,
-    )
-
-    if selected_post is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Facebook post not found.",
+    try:
+        selected_post = (
+            fb_fetch_post_by_id(
+                post_id
+            )
         )
 
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
 
     post_text = str(
         selected_post.get(
@@ -2123,19 +2768,25 @@ def collect_facebook_post(
         )
     ).strip()
 
+    try:
+        raw_comments = (
+            fb_fetch_all_comments(
+                post_id
+            )
+        )
 
-    raw_comments = fb_fetch_all_comments(
-        post_id
-    )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
 
     normalized_content = []
 
     comments_count = 0
     replies_count = 0
 
-
     for raw_comment in raw_comments:
-
         normalized_comment = (
             fb_normalize_comment(
                 raw_comment,
@@ -2144,93 +2795,129 @@ def collect_facebook_post(
             )
         )
 
-        if normalized_comment is not None:
+        if (
+            normalized_comment
+            is not None
+        ):
             normalized_content.append(
                 normalized_comment
             )
 
             comments_count += 1
 
-
         comment_id = str(
-            raw_comment["id"]
-        )
-
-        raw_replies = (
-            fb_fetch_comment_replies(
-                comment_id
+            raw_comment.get(
+                "id",
+                "",
             )
-        )
+        ).strip()
 
+        if not comment_id:
+            continue
+
+        try:
+            raw_replies = (
+                fb_fetch_comment_replies(
+                    comment_id
+                )
+            )
+
+        except RuntimeError as exc:
+            print(
+                f"Could not fetch "
+                f"Facebook replies "
+                f"for comment "
+                f"{comment_id}: "
+                f"{exc}"
+            )
+
+            raw_replies = []
 
         for raw_reply in raw_replies:
-
             normalized_reply = (
                 fb_normalize_reply(
                     raw_reply,
-                    parent_comment_id=comment_id,
+                    parent_comment_id=(
+                        comment_id
+                    ),
                     post_id=post_id,
                     post_text=post_text,
                 )
             )
 
-            if normalized_reply is not None:
+            if (
+                normalized_reply
+                is not None
+            ):
                 normalized_content.append(
                     normalized_reply
                 )
 
                 replies_count += 1
 
-
     fb_save_comments(
         normalized_content
     )
 
-
-    analyzed_items = analyze_post_and_refresh_insights(
-    "facebook",
-    post_id,
-)
-
+    analyzed_items = (
+        analyze_post_and_refresh_insights(
+            "facebook",
+            post_id,
+        )
+    )
 
     return {
-        "status": "success",
-        "platform": "facebook",
-        "post_id": post_id,
-        "comments": comments_count,
-        "replies": replies_count,
+        "status":
+            "success",
+
+        "platform":
+            "facebook",
+
+        "post_id":
+            post_id,
+
+        "comments":
+            comments_count,
+
+        "replies":
+            replies_count,
+
         "items_processed": (
             comments_count
             + replies_count
         ),
-        "analysis_completed": True,
-        "analyzed_items": analyzed_items,
+
+        "analysis_completed":
+            True,
+
+        "analyzed_items":
+            analyzed_items,
     }
 
+
+# =========================================================
+# COLLECT INSTAGRAM POST
+# =========================================================
+
 @app.post(
-    "/api/collection/instagram/posts/{media_id}/collect"
+    "/api/collection/instagram/"
+    "posts/{media_id}/collect"
 )
 def collect_instagram_post(
     media_id: str,
 ):
-
-    media_items = ig_fetch_all_media()
-
-    selected_media = next(
-        (
-            media
-            for media in media_items
-            if str(media.get("id")) == media_id
-        ),
-        None,
-    )
-
-    if selected_media is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Instagram post not found.",
+    try:
+        selected_media = (
+            ig_fetch_media_by_id(
+                media_id
+            )
         )
 
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
 
     post_text = str(
         selected_media.get(
@@ -2239,19 +2926,25 @@ def collect_instagram_post(
         )
     ).strip()
 
+    try:
+        raw_comments = (
+            ig_fetch_all_comments(
+                media_id
+            )
+        )
 
-    raw_comments = ig_fetch_all_comments(
-        media_id
-    )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
 
     normalized_content = []
 
     comments_count = 0
     replies_count = 0
 
-
     for raw_comment in raw_comments:
-
         normalized_comment = (
             ig_normalize_comment(
                 raw_comment,
@@ -2260,359 +2953,852 @@ def collect_instagram_post(
             )
         )
 
-        if normalized_comment is not None:
+        if (
+            normalized_comment
+            is not None
+        ):
             normalized_content.append(
                 normalized_comment
             )
 
             comments_count += 1
 
-
         comment_id = str(
-            raw_comment["id"]
-        )
-
+            raw_comment.get(
+                "id",
+                "",
+            )
+        ).strip()
 
         replies = (
             raw_comment
-            .get("replies", {})
-            .get("data", [])
+            .get(
+                "replies",
+                {},
+            )
+            .get(
+                "data",
+                [],
+            )
         )
 
-
         for raw_reply in replies:
-
             normalized_reply = (
                 ig_normalize_reply(
                     raw_reply,
-                    parent_comment_id=comment_id,
+                    parent_comment_id=(
+                        comment_id
+                    ),
                     media_id=media_id,
                     post_text=post_text,
                 )
             )
 
-            if normalized_reply is not None:
+            if (
+                normalized_reply
+                is not None
+            ):
                 normalized_content.append(
                     normalized_reply
                 )
 
                 replies_count += 1
 
-
     ig_save_comments(
         normalized_content
     )
 
-
-    analyzed_items = analyze_post_and_refresh_insights(
-    "instagram",
-    media_id,
-)
-
+    analyzed_items = (
+        analyze_post_and_refresh_insights(
+            "instagram",
+            media_id,
+        )
+    )
 
     return {
-        "status": "success",
-        "platform": "instagram",
-        "post_id": media_id,
-        "comments": comments_count,
-        "replies": replies_count,
+        "status":
+            "success",
+
+        "platform":
+            "instagram",
+
+        "post_id":
+            media_id,
+
+        "comments":
+            comments_count,
+
+        "replies":
+            replies_count,
+
         "items_processed": (
             comments_count
             + replies_count
         ),
-        "analysis_completed": True,
-        "analyzed_items": analyzed_items,
+
+        "analysis_completed":
+            True,
+
+        "analyzed_items":
+            analyzed_items,
     }
 
+
+# =========================================================
+# COLLECTION STATUS HELPERS
+# =========================================================
 
 def get_collected_external_ids(
     platform: str,
     source_post_id: str,
 ) -> set[str]:
-    connection = get_database_connection()
+
+    connection = (
+        get_database_connection()
+    )
 
     try:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT external_id
+                SELECT
+                    external_id
+
                 FROM content
-                WHERE platform = %s
-                  AND source_post_id = %s
+
+                WHERE
+                    platform = %s
+                    AND source_post_id = %s
                 """,
-                (platform, source_post_id),
+                (
+                    platform,
+                    source_post_id,
+                ),
             )
-            rows = cursor.fetchall()
+
+            rows = (
+                cursor.fetchall()
+            )
+
     finally:
         connection.close()
 
     return {
-        str(row["external_id"])
+        str(
+            row[
+                "external_id"
+            ]
+        )
         for row in rows
-        if row.get("external_id") is not None
+        if row.get(
+            "external_id"
+        )
+        is not None
     }
+
+
+def get_monitored_post_ids(
+    platform: str,
+) -> list[str]:
+    """
+    Only return post IDs that already
+    have collected content in MySQL.
+
+    This prevents Collection Alerts
+    from scanning thousands of
+    historical social-media posts.
+    """
+
+    connection = (
+        get_database_connection()
+    )
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    source_post_id,
+
+                    MAX(
+                        published_at
+                    ) AS latest_activity
+
+                FROM content
+
+                WHERE
+                    platform = %s
+                    AND source_post_id
+                        IS NOT NULL
+
+                GROUP BY
+                    source_post_id
+
+                ORDER BY
+                    latest_activity DESC
+                """,
+                (
+                    platform,
+                ),
+            )
+
+            rows = (
+                cursor.fetchall()
+            )
+
+    finally:
+        connection.close()
+
+    return [
+        str(
+            row[
+                "source_post_id"
+            ]
+        )
+        for row in rows
+        if row.get(
+            "source_post_id"
+        )
+    ]
 
 
 def get_facebook_post_live_status(
     post: dict,
 ) -> dict:
-    post_id = str(post.get("id", ""))
-    post_text = str(post.get("message", "")).strip()
-    collected_ids = get_collected_external_ids(
-        "facebook",
-        post_id,
+
+    post_id = str(
+        post.get(
+            "id",
+            "",
+        )
     )
 
-    raw_comments = fb_fetch_all_comments(post_id)
+    post_text = str(
+        post.get(
+            "message",
+            "",
+        )
+    ).strip()
+
+    collected_ids = (
+        get_collected_external_ids(
+            "facebook",
+            post_id,
+        )
+    )
+
+    raw_comments = (
+        fb_fetch_all_comments(
+            post_id
+        )
+    )
 
     comments_count = 0
     replies_count = 0
+
     new_comments = 0
     new_replies = 0
 
     for raw_comment in raw_comments:
-        normalized_comment = fb_normalize_comment(
-            raw_comment,
-            post_id,
-            post_text,
+        normalized_comment = (
+            fb_normalize_comment(
+                raw_comment,
+                post_id,
+                post_text,
+            )
         )
 
-        if normalized_comment is not None:
+        if (
+            normalized_comment
+            is not None
+        ):
             comments_count += 1
-            if normalized_comment["external_id"] not in collected_ids:
+
+            if (
+                normalized_comment[
+                    "external_id"
+                ]
+                not in collected_ids
+            ):
                 new_comments += 1
 
-        comment_id = str(raw_comment.get("id", "")).strip()
+        comment_id = str(
+            raw_comment.get(
+                "id",
+                "",
+            )
+        ).strip()
+
         if not comment_id:
             continue
 
-        raw_replies = fb_fetch_comment_replies(comment_id)
+        raw_replies = (
+            fb_fetch_comment_replies(
+                comment_id
+            )
+        )
 
         for raw_reply in raw_replies:
-            normalized_reply = fb_normalize_reply(
-                raw_reply,
-                parent_comment_id=comment_id,
-                post_id=post_id,
-                post_text=post_text,
+            normalized_reply = (
+                fb_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=(
+                        comment_id
+                    ),
+                    post_id=post_id,
+                    post_text=post_text,
+                )
             )
 
-            if normalized_reply is not None:
+            if (
+                normalized_reply
+                is not None
+            ):
                 replies_count += 1
-                if normalized_reply["external_id"] not in collected_ids:
+
+                if (
+                    normalized_reply[
+                        "external_id"
+                    ]
+                    not in collected_ids
+                ):
                     new_replies += 1
 
     return {
-        "post_id": post_id,
-        "comments": comments_count,
-        "replies": replies_count,
-        "total_items": comments_count + replies_count,
-        "new_comments": new_comments,
-        "new_replies": new_replies,
-        "new_items": new_comments + new_replies,
+        "post_id":
+            post_id,
+
+        "comments":
+            comments_count,
+
+        "replies":
+            replies_count,
+
+        "total_items": (
+            comments_count
+            + replies_count
+        ),
+
+        "new_comments":
+            new_comments,
+
+        "new_replies":
+            new_replies,
+
+        "new_items": (
+            new_comments
+            + new_replies
+        ),
     }
 
 
 def get_instagram_post_live_status(
     media: dict,
 ) -> dict:
-    media_id = str(media.get("id", ""))
-    post_text = str(media.get("caption", "")).strip()
-    collected_ids = get_collected_external_ids(
-        "instagram",
-        media_id,
+
+    media_id = str(
+        media.get(
+            "id",
+            "",
+        )
     )
 
-    raw_comments = ig_fetch_all_comments(media_id)
+    post_text = str(
+        media.get(
+            "caption",
+            "",
+        )
+    ).strip()
+
+    collected_ids = (
+        get_collected_external_ids(
+            "instagram",
+            media_id,
+        )
+    )
+
+    raw_comments = (
+        ig_fetch_all_comments(
+            media_id
+        )
+    )
 
     comments_count = 0
     replies_count = 0
+
     new_comments = 0
     new_replies = 0
 
     for raw_comment in raw_comments:
-        normalized_comment = ig_normalize_comment(
-            raw_comment,
-            media_id,
-            post_text,
+        normalized_comment = (
+            ig_normalize_comment(
+                raw_comment,
+                media_id,
+                post_text,
+            )
         )
 
-        if normalized_comment is not None:
+        if (
+            normalized_comment
+            is not None
+        ):
             comments_count += 1
-            if normalized_comment["external_id"] not in collected_ids:
+
+            if (
+                normalized_comment[
+                    "external_id"
+                ]
+                not in collected_ids
+            ):
                 new_comments += 1
 
-        comment_id = str(raw_comment.get("id", "")).strip()
+        comment_id = str(
+            raw_comment.get(
+                "id",
+                "",
+            )
+        ).strip()
+
         replies = (
             raw_comment
-            .get("replies", {})
-            .get("data", [])
+            .get(
+                "replies",
+                {},
+            )
+            .get(
+                "data",
+                [],
+            )
         )
 
         for raw_reply in replies:
-            normalized_reply = ig_normalize_reply(
-                raw_reply,
-                parent_comment_id=comment_id,
-                media_id=media_id,
-                post_text=post_text,
+            normalized_reply = (
+                ig_normalize_reply(
+                    raw_reply,
+                    parent_comment_id=(
+                        comment_id
+                    ),
+                    media_id=media_id,
+                    post_text=post_text,
+                )
             )
 
-            if normalized_reply is not None:
+            if (
+                normalized_reply
+                is not None
+            ):
                 replies_count += 1
-                if normalized_reply["external_id"] not in collected_ids:
+
+                if (
+                    normalized_reply[
+                        "external_id"
+                    ]
+                    not in collected_ids
+                ):
                     new_replies += 1
 
     return {
-        "post_id": media_id,
-        "comments": comments_count,
-        "replies": replies_count,
-        "total_items": comments_count + replies_count,
-        "new_comments": new_comments,
-        "new_replies": new_replies,
-        "new_items": new_comments + new_replies,
+        "post_id":
+            media_id,
+
+        "comments":
+            comments_count,
+
+        "replies":
+            replies_count,
+
+        "total_items": (
+            comments_count
+            + replies_count
+        ),
+
+        "new_comments":
+            new_comments,
+
+        "new_replies":
+            new_replies,
+
+        "new_items": (
+            new_comments
+            + new_replies
+        ),
     }
 
 
-@app.get("/api/collection/pending")
+# =========================================================
+# COLLECTION ALERTS
+# =========================================================
+
+@app.get(
+    "/api/collection/pending"
+)
 def get_pending_collection_items():
+    """
+    Only check posts that have already
+    been collected at least once.
+
+    This avoids scanning potentially
+    thousands of historical posts.
+    """
+
     alerts = []
 
-    facebook_posts = fb_fetch_all_posts()
-    for index, post in enumerate(facebook_posts):
-        status = get_facebook_post_live_status(post)
-        if status["new_items"] > 0:
-            alerts.append({
-                "platform": "facebook",
-                "post_id": status["post_id"],
-                "post_number": index + 1,
-                "new_comments": status["new_comments"],
-                "new_replies": status["new_replies"],
-                "new_items": status["new_items"],
-                "total_items": status["total_items"],
-            })
+    facebook_post_ids = (
+        get_monitored_post_ids(
+            "facebook"
+        )
+    )
 
-    instagram_posts = ig_fetch_all_media()
-    for index, media in enumerate(instagram_posts):
-        status = get_instagram_post_live_status(media)
-        if status["new_items"] > 0:
-            alerts.append({
-                "platform": "instagram",
-                "post_id": status["post_id"],
-                "post_number": index + 1,
-                "new_comments": status["new_comments"],
-                "new_replies": status["new_replies"],
-                "new_items": status["new_items"],
-                "total_items": status["total_items"],
-            })
+    for index, post_id in enumerate(
+        facebook_post_ids
+    ):
+        try:
+            post = (
+                fb_fetch_post_by_id(
+                    post_id
+                )
+            )
+
+            status = (
+                get_facebook_post_live_status(
+                    post
+                )
+            )
+
+            if (
+                status[
+                    "new_items"
+                ]
+                > 0
+            ):
+                alerts.append(
+                    {
+                        "platform":
+                            "facebook",
+
+                        "post_id":
+                            status[
+                                "post_id"
+                            ],
+
+                        "post_number":
+                            index + 1,
+
+                        "new_comments":
+                            status[
+                                "new_comments"
+                            ],
+
+                        "new_replies":
+                            status[
+                                "new_replies"
+                            ],
+
+                        "new_items":
+                            status[
+                                "new_items"
+                            ],
+
+                        "total_items":
+                            status[
+                                "total_items"
+                            ],
+                    }
+                )
+
+        except Exception as exc:
+            print(
+                f"Could not check "
+                f"Facebook post "
+                f"{post_id}: "
+                f"{exc}"
+            )
+
+    instagram_post_ids = (
+        get_monitored_post_ids(
+            "instagram"
+        )
+    )
+
+    for index, media_id in enumerate(
+        instagram_post_ids
+    ):
+        try:
+            media = (
+                ig_fetch_media_by_id(
+                    media_id
+                )
+            )
+
+            status = (
+                get_instagram_post_live_status(
+                    media
+                )
+            )
+
+            if (
+                status[
+                    "new_items"
+                ]
+                > 0
+            ):
+                alerts.append(
+                    {
+                        "platform":
+                            "instagram",
+
+                        "post_id":
+                            status[
+                                "post_id"
+                            ],
+
+                        "post_number":
+                            index + 1,
+
+                        "new_comments":
+                            status[
+                                "new_comments"
+                            ],
+
+                        "new_replies":
+                            status[
+                                "new_replies"
+                            ],
+
+                        "new_items":
+                            status[
+                                "new_items"
+                            ],
+
+                        "total_items":
+                            status[
+                                "total_items"
+                            ],
+                    }
+                )
+
+        except Exception as exc:
+            print(
+                f"Could not check "
+                f"Instagram post "
+                f"{media_id}: "
+                f"{exc}"
+            )
 
     return {
-        "alerts": alerts,
-        "total_new_items": sum(
-            alert["new_items"]
-            for alert in alerts
-        ),
+        "alerts":
+            alerts,
+
+        "total_new_items":
+            sum(
+                alert[
+                    "new_items"
+                ]
+                for alert in alerts
+            ),
     }
 
 
-# Add these endpoints to backend/api.py after the existing collection endpoints.
+# =========================================================
+# POST PREVIEW
+# =========================================================
 
 @app.get(
-    "/api/collection/facebook/posts/{post_id}/preview"
+    "/api/collection/facebook/"
+    "posts/{post_id}/preview"
 )
-def preview_facebook_post(post_id: str):
-    posts = fb_fetch_all_posts()
-
-    selected_post = next(
-        (
-            post
-            for post in posts
-            if str(post.get("id")) == post_id
-        ),
-        None,
-    )
-
-    if selected_post is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Facebook post not found.",
+def preview_facebook_post(
+    post_id: str,
+):
+    try:
+        selected_post = (
+            fb_fetch_post_by_id(
+                post_id
+            )
         )
 
-    status = get_facebook_post_live_status(
-        selected_post
-    )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        status = (
+            get_facebook_post_live_status(
+                selected_post
+            )
+        )
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
 
     return {
-        "platform": "facebook",
-        "post_id": post_id,
-        "text": str(
-            selected_post.get("message", "")
-        ).strip(),
-        "created_time": selected_post.get(
-            "created_time"
-        ),
-        "media_type": "Post",
-        "permalink": None,
-        "comments": status["comments"],
-        "replies": status["replies"],
-        "total_items": status["total_items"],
-        "new_comments": status["new_comments"],
-        "new_replies": status["new_replies"],
-        "new_items": status["new_items"],
+        "platform":
+            "facebook",
+
+        "post_id":
+            post_id,
+
+        "text":
+            str(
+                selected_post.get(
+                    "message",
+                    "",
+                )
+            ).strip(),
+
+        "created_time":
+            selected_post.get(
+                "created_time"
+            ),
+
+        "media_type":
+            "Post",
+
+        "permalink":
+            selected_post.get(
+                "permalink_url"
+            ),
+
+        "comments":
+            status[
+                "comments"
+            ],
+
+        "replies":
+            status[
+                "replies"
+            ],
+
+        "total_items":
+            status[
+                "total_items"
+            ],
+
+        "new_comments":
+            status[
+                "new_comments"
+            ],
+
+        "new_replies":
+            status[
+                "new_replies"
+            ],
+
+        "new_items":
+            status[
+                "new_items"
+            ],
     }
 
 
 @app.get(
-    "/api/collection/instagram/posts/{media_id}/preview"
+    "/api/collection/instagram/"
+    "posts/{media_id}/preview"
 )
-def preview_instagram_post(media_id: str):
-    media_items = ig_fetch_all_media()
-
-    selected_media = next(
-        (
-            media
-            for media in media_items
-            if str(media.get("id")) == media_id
-        ),
-        None,
-    )
-
-    if selected_media is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Instagram post not found.",
+def preview_instagram_post(
+    media_id: str,
+):
+    try:
+        selected_media = (
+            ig_fetch_media_by_id(
+                media_id
+            )
         )
 
-    status = get_instagram_post_live_status(
-        selected_media
-    )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        status = (
+            get_instagram_post_live_status(
+                selected_media
+            )
+        )
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
 
     return {
-        "platform": "instagram",
-        "post_id": media_id,
-        "text": str(
-            selected_media.get("caption", "")
-        ).strip(),
-        "timestamp": selected_media.get(
-            "timestamp"
-        ),
-        "media_type": selected_media.get(
-            "media_type"
-        ),
-        "permalink": selected_media.get(
-            "permalink"
-        ),
-        "comments": status["comments"],
-        "replies": status["replies"],
-        "total_items": status["total_items"],
-        "new_comments": status["new_comments"],
-        "new_replies": status["new_replies"],
-        "new_items": status["new_items"],
+        "platform":
+            "instagram",
+
+        "post_id":
+            media_id,
+
+        "text":
+            str(
+                selected_media.get(
+                    "caption",
+                    "",
+                )
+            ).strip(),
+
+        "timestamp":
+            selected_media.get(
+                "timestamp"
+            ),
+
+        "media_type":
+            selected_media.get(
+                "media_type"
+            ),
+
+        "permalink":
+            selected_media.get(
+                "permalink"
+            ),
+
+        "comments":
+            status[
+                "comments"
+            ],
+
+        "replies":
+            status[
+                "replies"
+            ],
+
+        "total_items":
+            status[
+                "total_items"
+            ],
+
+        "new_comments":
+            status[
+                "new_comments"
+            ],
+
+        "new_replies":
+            status[
+                "new_replies"
+            ],
+
+        "new_items":
+            status[
+                "new_items"
+            ],
     }
+
+
+# =========================================================
+# AI INSIGHTS
+# =========================================================
 
 @app.get(
     "/api/ai-insights/overview"
 )
 def get_ai_insights_overview():
-
     insights = (
         get_overview_topic_insights(
             limit=3
@@ -2620,14 +3806,15 @@ def get_ai_insights_overview():
     )
 
     return {
-        "insights": insights
+        "insights":
+            insights
     }
+
 
 @app.get(
     "/api/ai-insights"
 )
 def get_all_ai_insights():
-
     insights = (
         get_overview_topic_insights(
             limit=100
@@ -2635,5 +3822,6 @@ def get_all_ai_insights():
     )
 
     return {
-        "insights": insights
+        "insights":
+            insights
     }

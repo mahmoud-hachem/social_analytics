@@ -115,6 +115,147 @@ def fetch_all_posts() -> list[dict[str, Any]]:
 
     return posts
 
+def fetch_posts_page(
+    after: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+
+    url = (
+        f"https://graph.facebook.com/"
+        f"{META_GRAPH_API_VERSION}/"
+        f"{META_PAGE_ID}/posts"
+    )
+
+    params: dict[str, Any] = {
+        "access_token": META_PAGE_ACCESS_TOKEN,
+        "fields": (
+            "id,message,created_time,"
+            "permalink_url"
+        ),
+        "limit": limit,
+    }
+
+    if after:
+        params["after"] = after
+
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30,
+    )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            "Meta returned a non-JSON response: "
+            f"{response.text}"
+        ) from exc
+
+
+    if not response.ok or "error" in payload:
+        error = payload.get(
+            "error",
+            {}
+        )
+
+        raise RuntimeError(
+            error.get(
+                "message",
+                "Unknown Meta Graph API error",
+            )
+        )
+
+
+    paging = payload.get(
+        "paging",
+        {}
+    )
+
+    cursors = paging.get(
+        "cursors",
+        {}
+    )
+
+
+    next_cursor = None
+
+    if paging.get("next"):
+        next_cursor = cursors.get(
+            "after"
+        )
+
+
+    return {
+        "posts":
+            payload.get(
+                "data",
+                []
+            ),
+
+        "next_cursor":
+            next_cursor,
+
+        "has_next":
+            bool(
+                paging.get("next")
+            ),
+    }
+
+def fetch_post_by_id(
+    post_id: str,
+) -> dict[str, Any]:
+
+    url = (
+        f"https://graph.facebook.com/"
+        f"{META_GRAPH_API_VERSION}/"
+        f"{post_id}"
+    )
+
+    params = {
+        "access_token":
+            META_PAGE_ACCESS_TOKEN,
+
+        "fields": (
+            "id,message,created_time,"
+            "permalink_url"
+        ),
+    }
+
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=30,
+    )
+
+    try:
+        payload = response.json()
+
+    except ValueError as exc:
+        raise RuntimeError(
+            "Meta returned a non-JSON response: "
+            f"{response.text}"
+        ) from exc
+
+
+    if not response.ok or "error" in payload:
+        error = payload.get(
+            "error",
+            {}
+        )
+
+        raise RuntimeError(
+            error.get(
+                "message",
+                "Facebook post not found.",
+            )
+        )
+
+
+    return payload
+
 def fetch_all_comments(
     post_id: str,
 ) -> list[dict[str, Any]]:
